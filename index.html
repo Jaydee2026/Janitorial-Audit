@@ -1211,8 +1211,6 @@ function exportCSV() {
 
   // Compute overall score
   let totalSum = 0, totalCount = 0, naCount = 0, failCount = 0;
-  const failedSections = [];
-
   SECTIONS.forEach(sec => {
     const v = scores[sec.id];
     if (!v) return;
@@ -1220,104 +1218,100 @@ function exportCSV() {
     const n = parseInt(v);
     totalSum += n;
     totalCount++;
-    if (n <= 2) {
-      failCount++;
-      failedSections.push(sec.title + ' (Score: ' + n + ')');
-    }
+    if (n <= 2) failCount++;
   });
 
-  const overall      = totalCount > 0 ? (totalSum / totalCount).toFixed(2) : '';
-  const overallBand  = overall === '' ? '' :
+  const overall     = totalCount > 0 ? (totalSum / totalCount).toFixed(2) : '';
+  const overallBand = overall === '' ? '' :
     parseFloat(overall) >= 4.0 ? 'Exceeds Target' :
     parseFloat(overall) >= 3.0 ? 'Meets Target'   :
     parseFloat(overall) >= 2.5 ? 'Needs Improvement' : 'Below Target';
-  const failedSummary = failedSections.join('; ');
 
-  const SCORE_LABELS = { '5':'Exceeds Target', '4':'Meets Target', '3':'Needs Improvement', '2':'Target Not Met', '1':'Failure', 'na':'Not Applicable' };
+  const SCORE_LABELS = {
+    '5':'Exceeds Target',
+    '4':'Meets Target',
+    '3':'Needs Improvement',
+    '2':'Target Not Met',
+    '1':'Failure',
+    'na':'Not Applicable'
+  };
 
-  // Helper: wrap value safely for CSV / Excel
-  // - Prefix with tab to prevent Excel auto-formatting dates/numbers as wrong type
-  //   only for the date field; everything else just quote-escape.
   function q(val) {
     const s = (val === null || val === undefined) ? '' : String(val);
-    // Escape any double-quotes inside the value
     return '"' + s.replace(/"/g, '""') + '"';
   }
 
-  // Column headers — one row per audit section (18 detail rows + 1 summary row)
-  const headers = [
-    'Record_Type',
-    'Site',
-    'Inspection_Date',
-    'Building',
-    'Inspected_By',
-    'Section_Number',
-    'Audit_Category',
-    'Score',
-    'Score_Label',
-    'Comments',
-    'Failed_Low_Score_Flag',
-    'Overall_Audit_Score',
-    'Overall_Score_Band',
-    'Sections_Scored',
-    'NA_Sections',
-    'Failed_Low_Score_Count',
-    'Failed_Low_Score_Summary'
-  ];
+  const rows = [];
 
-  const rows = [headers.map(h => q(h)).join(',')];
+  // ── HEADER BLOCK (matches original form top) ──────────────────────
+  rows.push([q('Janitorial Audit Form'), q(''), q(''), q(''), q('')].join(','));
+  rows.push([q('Site:'), q(site), q(''), q('Inspection Date:'), q(inspDate)].join(','));
+  rows.push([q('Building:'), q(building), q(''), q('Inspected By:'), q(inspectedBy)].join(','));
+  rows.push([q(''), q(''), q(''), q(''), q('')].join(','));
 
-  // One detail row per section
+  // ── COLUMN HEADERS (matches original form columns) ────────────────
+  rows.push([
+    q('Category'),
+    q('General Conditions'),
+    q('Audit Score'),
+    q('Score Label'),
+    q('Comments'),
+    q('Failed / Low Score Flag'),
+    q('Overall Audit Score'),
+    q('Score Band')
+  ].join(','));
+
+  // ── ONE ROW PER SECTION (18 rows) ─────────────────────────────────
   SECTIONS.forEach(sec => {
-    const v      = scores[sec.id];
-    const score  = v ? (v === 'na' ? 'N/A' : v) : '';
-    const label  = v ? (SCORE_LABELS[v] || '') : '';
-    const note   = comments[sec.id] || '';
-    const failed = v && v !== 'na' && parseInt(v) <= 2 ? 'YES' : '';
+    const v       = scores[sec.id];
+    const score   = v ? (v === 'na' ? 'N/A' : v) : '';
+    const label   = v ? (SCORE_LABELS[v] || '') : '';
+    const note    = comments[sec.id] || '';
+    const failed  = v && v !== 'na' && parseInt(v) <= 2 ? 'YES' : '';
+    const conditions = sec.conditions.join(' | ');
 
     rows.push([
-      q('Section'),
-      q(site),
-      q(inspDate),
-      q(building),
-      q(inspectedBy),
-      q(sec.num),
       q(sec.title),
+      q(conditions),
       q(score),
       q(label),
       q(note),
       q(failed),
       q(overall),
-      q(overallBand),
-      q(totalCount),
-      q(naCount),
-      q(failCount),
-      q(failedSummary)
+      q(overallBand)
     ].join(','));
   });
 
-  // One summary row at the bottom
+  // ── SUMMARY BLOCK (matches original form bottom) ──────────────────
+  rows.push([q(''), q(''), q(''), q(''), q(''), q(''), q(''), q('')].join(','));
   rows.push([
-    q('Summary'),
-    q(site),
-    q(inspDate),
-    q(building),
-    q(inspectedBy),
-    q(''),
-    q('OVERALL AUDIT'),
-    q(overall),
-    q(overallBand),
-    q(''),
+    q('Janitorial Audit Score'),
     q(''),
     q(overall),
     q(overallBand),
-    q(totalCount),
-    q(naCount),
-    q(failCount),
-    q(failedSummary)
+    q(''),
+    q(''),
+    q(''),
+    q('')
   ].join(','));
+  rows.push([q(''), q(''), q(''), q(''), q(''), q(''), q(''), q('')].join(','));
 
-  // UTF-8 BOM ensures Excel opens with correct encoding on all platforms
+  // ── LEGEND BLOCK ──────────────────────────────────────────────────
+  rows.push([q('Legend'), q(''), q(''), q(''), q(''), q(''), q(''), q('')].join(','));
+  rows.push([q('Exceeds Target'),    q('5'), q(''), q(''), q(''), q(''), q(''), q('')].join(','));
+  rows.push([q('Meets Target'),      q('4'), q(''), q(''), q(''), q(''), q(''), q('')].join(','));
+  rows.push([q('Needs Improvement'), q('3'), q(''), q(''), q(''), q(''), q(''), q('')].join(','));
+  rows.push([q('Target Not Met'),    q('2'), q(''), q(''), q(''), q(''), q(''), q('')].join(','));
+  rows.push([q('Failure'),           q('1'), q(''), q(''), q(''), q(''), q(''), q('')].join(','));
+  rows.push([q('Not Applicable'),    q('N/A'), q(''), q(''), q(''), q(''), q(''), q('')].join(','));
+  rows.push([q(''), q(''), q(''), q(''), q(''), q(''), q(''), q('')].join(','));
+
+  // ── SUMMARY STATS ─────────────────────────────────────────────────
+  rows.push([q('Sections Scored'), q(totalCount), q(''), q(''), q(''), q(''), q(''), q('')].join(','));
+  rows.push([q('N/A Sections'),    q(naCount),    q(''), q(''), q(''), q(''), q(''), q('')].join(','));
+  rows.push([q('Failed Items'),    q(failCount),  q(''), q(''), q(''), q(''), q(''), q('')].join(','));
+
+  // UTF-8 BOM ensures Excel opens with correct encoding
   const BOM = '\uFEFF';
   const csvContent = BOM + rows.join('\r\n');
 
