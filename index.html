@@ -999,49 +999,107 @@ function submitAudit() {
   const inspDate    = document.getElementById('insp-date').value   || '';
   const building    = document.getElementById('building').value    || '';
   const inspectedBy = document.getElementById('inspected-by').value|| '';
+  const siteShort   = site.split(',')[0].trim();
+  const dateStr     = inspDate ? inspDate.replace(/-/g, '') : 'nodate';
+  const siteStr     = site.replace(/[^a-zA-Z0-9]/g, '_');
 
-  // Build site slug for subject line — strip state abbreviation for clean subject
-  const siteShort = site.split(',')[0].trim(); // e.g. "St. Joseph" from "St. Joseph, MO"
-  const subject   = encodeURIComponent('Janitorial Audit - ' + siteShort);
-  const dateStr   = inspDate ? inspDate.replace(/-/g, '') : 'nodate';
-  const siteStr   = site.replace(/[^a-zA-Z0-9]/g, '_');
+  const photoCount = SECTIONS.reduce((total, sec) => {
+    return total + (photos[sec.id] ? photos[sec.id].filter(Boolean).length : 0);
+  }, 0);
 
-  // Step 1 — download PDF
-  exportPDF();
+  const subject = encodeURIComponent('Janitorial Audit - ' + siteShort);
+  const body    = encodeURIComponent(
+    'BI Janitorial Audit Submission\n\n' +
+    'Site: ' + site + '\n' +
+    'Date: ' + inspDate + '\n' +
+    'Building: ' + building + '\n' +
+    'Inspected By: ' + inspectedBy + '\n\n' +
+    'Please find attached:\n' +
+    '• PDF report: BI_Janitorial_Audit_' + siteStr + '_' + dateStr + '.pdf\n' +
+    '• CSV data:   BI_Janitorial_Audit_' + siteStr + '_' + dateStr + '.csv\n' +
+    (photoCount > 0 ? '• ' + photoCount + ' photo(s) — see attached JPG files\n' : '') +
+    '\nThis audit was submitted via the BI Janitorial Audit app.\n'
+  );
 
-  // Step 2 — download CSV after short delay so browser handles both
-  setTimeout(() => {
-    exportCSV();
-  }, 800);
+  // Close results modal and show step-by-step submit modal
+  closeModal();
 
-  // Step 3 — download each photo after another delay
-  setTimeout(() => {
-    exportPhotos();
-  }, 1600);
+  // Build step modal content
+  const stepItems = [
+    { id: 'step-pdf',    label: '1. Download PDF Report',   fn: 'exportPDF()',    icon: '📄' },
+    { id: 'step-csv',    label: '2. Download CSV Data',     fn: 'exportCSV()',    icon: '📊' },
+  ];
+  if (photoCount > 0) {
+    stepItems.push({ id: 'step-photos', label: '3. Download ' + photoCount + ' Photo(s)', fn: 'exportPhotos()', icon: '📷' });
+  }
+  const outlookStep = photoCount > 0 ? '4' : '3';
 
-  // Step 4 — open Outlook with pre-filled subject and instructions in body
-  setTimeout(() => {
-    const photoCount = SECTIONS.reduce((total, sec) => {
-      return total + (photos[sec.id] ? photos[sec.id].filter(Boolean).length : 0);
-    }, 0);
+  const stepHTML = stepItems.map(s => `
+    <div id="${s.id}" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--gray-50);border:1.5px solid var(--gray-200);border-radius:var(--radius-md);margin-bottom:8px;">
+      <div style="font-size:22px;width:32px;text-align:center;">${s.icon}</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:600;color:var(--gray-800);">${s.label}</div>
+        <div style="font-size:11px;color:var(--gray-400);">Tap to download</div>
+      </div>
+      <button onclick="${s.fn};markStepDone('${s.id}');" style="height:36px;padding:0 14px;background:var(--green);color:#fff;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;">Download</button>
+    </div>
+  `).join('');
 
-    const body = encodeURIComponent(
-      'BI Janitorial Audit Submission\n\n' +
-      'Site: ' + site + '\n' +
-      'Date: ' + inspDate + '\n' +
-      'Building: ' + building + '\n' +
-      'Inspected By: ' + inspectedBy + '\n\n' +
-      '---\n' +
-      'FILES TO ATTACH FROM YOUR DOWNLOADS FOLDER:\n' +
-      '1. BI_Janitorial_Audit_' + siteStr + '_' + dateStr + '.pdf\n' +
-      '2. BI_Janitorial_Audit_' + siteStr + '_' + dateStr + '.csv\n' +
-      (photoCount > 0 ? '3. ' + photoCount + ' photo file(s) — named by section (e.g. Restrooms_Photo_1.jpg)\n' : '') +
-      '\nPlease attach all files before sending.\n'
-    );
+  const modalContent = `
+    <div style="padding:20px;">
+      <div style="width:36px;height:4px;background:var(--gray-200);border-radius:2px;margin:0 auto 16px;"></div>
+      <div style="font-size:18px;font-weight:700;color:var(--gray-800);margin-bottom:4px;">Submit Audit</div>
+      <div style="font-size:12px;color:var(--gray-400);margin-bottom:16px;">${site} · ${inspDate} · ${inspectedBy}</div>
+      <div style="font-size:11px;color:var(--gray-600);background:var(--green-light);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:14px;line-height:1.6;">
+        Download each file below, then tap <strong>Open Outlook</strong> to send your email. Attach all downloaded files before sending.
+      </div>
+      ${stepHTML}
+      <div style="margin-top:4px;padding:12px;background:var(--gray-50);border:1.5px solid var(--gray-200);border-radius:var(--radius-md);margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="font-size:22px;width:32px;text-align:center;">✉️</div>
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:600;color:var(--gray-800);">${outlookStep}. Open Outlook</div>
+            <div style="font-size:11px;color:var(--gray-400);">Subject pre-filled — attach files &amp; send</div>
+          </div>
+          <button onclick="window.location.href='mailto:?subject=${subject}&body=${body}';" style="height:36px;padding:0 14px;background:#0078D4;color:#fff;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;">Open</button>
+        </div>
+      </div>
+      <button onclick="closeSubmitModal();" style="width:100%;height:44px;background:transparent;color:var(--gray-400);border:1.5px solid var(--gray-200);border-radius:var(--radius-md);font-size:13px;cursor:pointer;margin-top:4px;">Cancel</button>
+    </div>
+  `;
 
-    window.location.href = 'mailto:?subject=' + subject + '&body=' + body;
-  }, 2400);
+  // Create and show submit modal
+  let overlay = document.getElementById('submit-modal-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'submit-modal-overlay';
+    overlay.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.50);z-index:300;align-items:flex-end;justify-content:center;';
+    const modal = document.createElement('div');
+    modal.id = 'submit-modal-inner';
+    modal.style.cssText = 'background:var(--white);border-radius:14px 14px 0 0;width:100%;max-width:680px;max-height:90vh;overflow-y:auto;-webkit-overflow-scrolling:touch;';
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', function(e) { if (e.target === this) closeSubmitModal(); });
+  }
+  document.getElementById('submit-modal-inner').innerHTML = modalContent;
+  overlay.style.display = 'flex';
 }
+
+function markStepDone(stepId) {
+  const step = document.getElementById(stepId);
+  if (!step) return;
+  step.style.borderColor = 'var(--green-mid)';
+  step.style.background  = 'var(--green-light)';
+  const btn = step.querySelector('button');
+  if (btn) { btn.textContent = '✓ Done'; btn.style.background = '#3B7A16'; btn.disabled = true; }
+}
+
+function closeSubmitModal() {
+  const overlay = document.getElementById('submit-modal-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+
 
 function exportPhotos() {
   const site    = document.getElementById('site').value    || '';
