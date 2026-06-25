@@ -1167,10 +1167,10 @@ function exportPDF() {
   const inspDate    = document.getElementById('insp-date').value   || '';
   const building    = document.getElementById('building').value    || '';
   const inspectedBy = document.getElementById('inspected-by').value|| '';
+  const dateStr     = inspDate ? inspDate.replace(/-/g, '') : 'nodate';
+  const siteStr     = site.replace(/[^a-zA-Z0-9]/g, '_');
 
-  const SCORE_LABELS = { '5':'Exceeds Target','4':'Meets Target','3':'Needs Improvement','2':'Target Not Met','1':'Failure','na':'Not Applicable' };
-  const SCORE_COLORS = { '5':'#006A4D','4':'#3B7A16','3':'#C47A00','2':'#B84000','1':'#9A1818','na':'#888888' };
-  const SCORE_BG    = { '5':'#E1F5EE','4':'#EAF3DE','3':'#FFFBF0','2':'#FFF4EF','1':'#FFF2F2','na':'#F4F4F4' };
+  const SCORE_LABELS = {'5':'Exceeds Target','4':'Meets Target','3':'Needs Improvement','2':'Target Not Met','1':'Failure','na':'Not Applicable'};
 
   // Compute overall
   let totalSum = 0, totalCount = 0, naCount = 0, failCount = 0;
@@ -1186,199 +1186,231 @@ function exportPDF() {
   const overall     = totalCount > 0 ? (totalSum / totalCount).toFixed(2) : '—';
   const overallBand = overall === '—' ? 'No sections scored' :
     parseFloat(overall) >= 4.0 ? 'Exceeds Target' :
-    parseFloat(overall) >= 3.0 ? 'Meets Target'   :
-    parseFloat(overall) >= 2.5 ? 'Needs Improvement' : 'Below Target — Corrective Action Required';
-  const bandColor = overall === '—' ? '#888' :
-    parseFloat(overall) >= 3.0 ? '#006A4D' :
-    parseFloat(overall) >= 2.5 ? '#C47A00' : '#9A1818';
-  const bandBg = overall === '—' ? '#f4f4f4' :
-    parseFloat(overall) >= 3.0 ? '#E1F5EE' :
-    parseFloat(overall) >= 2.5 ? '#FFFBF0' : '#FFF2F2';
+    parseFloat(overall) >= 3.0 ? 'Meets Target' :
+    parseFloat(overall) >= 2.5 ? 'Needs Improvement' : 'Below Target';
 
-  // Failed items
-  const failedItems = [];
-  SECTIONS.forEach(sec => {
-    const v = scores[sec.id];
-    if (v && v !== 'na' && parseInt(v) <= 2) {
-      failedItems.push({ title: sec.title, score: v, comment: comments[sec.id] || '' });
-    }
-  });
-
-  // Build section rows HTML
-  let sectionsHTML = '';
-  let lastGroup = '';
-  SECTIONS.forEach(sec => {
-    if (sec.group !== lastGroup) {
-      sectionsHTML += `<div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.08em;padding:14px 0 4px;">${sec.group}</div>`;
-      lastGroup = sec.group;
-    }
-
-    const v      = scores[sec.id];
-    const label  = v ? (SCORE_LABELS[v] || '') : 'Not scored';
-    const color  = v ? (SCORE_COLORS[v] || '#888') : '#888';
-    const bg     = v ? (SCORE_BG[v]    || '#f4f4f4') : '#f4f4f4';
-    const note   = comments[sec.id] || '';
-
-    // Photo thumbnails
-    let photosHTML = '';
-    const secPhotos = (photos[sec.id] || []).filter(Boolean);
-    if (secPhotos.length > 0) {
-      photosHTML = `<div style="margin-top:10px;">
-        <div style="font-size:10px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">Photos (${secPhotos.length})</div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;">
-          ${secPhotos.map((src, i) => `<img src="${src}" alt="Photo ${i+1}" style="width:130px;height:130px;object-fit:cover;border-radius:6px;border:1px solid #ddd;">`).join('')}
-        </div>
-      </div>`;
-    }
-
-    // Conditions
-    const condHTML = sec.conditions.map(c =>
-      `<li style="font-size:11px;color:#555;line-height:1.5;padding:3px 0 3px 14px;position:relative;border-bottom:1px solid #eee;">
-        <span style="position:absolute;left:0;color:#9FE1CB;font-size:13px;line-height:1.4;">•</span>${c}
-      </li>`
-    ).join('');
-
-    sectionsHTML += `
-      <div style="border:1px solid #ddd;border-radius:8px;overflow:hidden;margin-bottom:12px;page-break-inside:avoid;">
-        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#006A4D;">
-          <div style="width:28px;height:28px;border-radius:5px;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">${sec.icon}</div>
-          <div style="flex:1;">
-            <div style="font-size:13px;font-weight:600;color:#fff;">${sec.title}</div>
-            <div style="font-size:10px;color:rgba(255,255,255,0.7);">Section ${sec.num} of 18</div>
-          </div>
-          <div style="text-align:right;">
-            <div style="font-size:22px;font-weight:700;color:#fff;">${v && v !== 'na' ? v : (v === 'na' ? 'N/A' : '—')}</div>
-          </div>
-        </div>
-        <div style="padding:12px 14px;background:#fff;">
-          <div style="font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">General Conditions</div>
-          <ul style="list-style:none;padding:0;margin:0 0 12px;">${condHTML}</ul>
-          <div style="display:inline-block;padding:5px 14px;border-radius:20px;background:${bg};color:${color};font-size:12px;font-weight:600;border:1px solid ${color}33;margin-bottom:${note || secPhotos.length ? '12px' : '0'};">
-            ${label}
-          </div>
-          ${note ? `<div style="margin-top:0;">
-            <div style="font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Comments</div>
-            <div style="font-size:12px;color:#333;line-height:1.6;background:#f9f9f8;border:1px solid #e8e8e5;border-radius:5px;padding:8px 10px;">${note}</div>
-          </div>` : ''}
-          ${photosHTML}
-        </div>
-      </div>
-    `;
-  });
-
-  // Failed items section
-  let failedHTML = '';
-  if (failedItems.length > 0) {
-    const rows = failedItems.map(f => `
-      <tr>
-        <td style="padding:7px 10px;font-size:12px;border-bottom:1px solid #eee;color:#333;">${f.title}</td>
-        <td style="padding:7px 10px;font-size:12px;border-bottom:1px solid #eee;text-align:center;">
-          <span style="display:inline-block;width:24px;height:24px;border-radius:50%;background:${SCORE_BG[f.score]};color:${SCORE_COLORS[f.score]};font-weight:700;font-size:12px;line-height:24px;text-align:center;">${f.score}</span>
-        </td>
-        <td style="padding:7px 10px;font-size:11px;border-bottom:1px solid #eee;color:#666;font-style:italic;">${f.comment || '—'}</td>
-      </tr>
-    `).join('');
-    failedHTML = `
-      <div style="page-break-before:auto;margin-bottom:16px;">
-        <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:#FFF2F2;border:1px solid #F0A0A0;border-radius:8px 8px 0 0;">
-          <span style="font-size:16px;">⚠️</span>
-          <span style="font-size:13px;font-weight:600;color:#7A1818;">Items Needing Attention</span>
-          <span style="margin-left:auto;font-size:11px;font-weight:600;padding:2px 10px;border-radius:20px;background:#FCEBEB;color:#8B0000;">${failedItems.length} item${failedItems.length !== 1 ? 's' : ''}</span>
-        </div>
-        <table style="width:100%;border-collapse:collapse;border:1px solid #F0A0A0;border-top:none;border-radius:0 0 8px 8px;overflow:hidden;">
-          <thead>
-            <tr style="background:#FFF8F8;">
-              <th style="padding:7px 10px;font-size:11px;font-weight:600;color:#888;text-align:left;border-bottom:1px solid #eee;text-transform:uppercase;letter-spacing:0.04em;">Section</th>
-              <th style="padding:7px 10px;font-size:11px;font-weight:600;color:#888;text-align:center;border-bottom:1px solid #eee;text-transform:uppercase;letter-spacing:0.04em;">Score</th>
-              <th style="padding:7px 10px;font-size:11px;font-weight:600;color:#888;text-align:left;border-bottom:1px solid #eee;text-transform:uppercase;letter-spacing:0.04em;">Comments</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    `;
+  // Load jsPDF from CDN then generate
+  if (typeof window.jspdf === 'undefined') {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    script.onload = () => generateJsPDF();
+    script.onerror = () => alert('Could not load PDF library. Please check your internet connection and try again.');
+    document.head.appendChild(script);
+  } else {
+    generateJsPDF();
   }
 
-  // Full document
-  const html = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>BI Janitorial Audit — ${site} — ${inspDate}</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, Helvetica, sans-serif; color: #2C2C2A; background: #fff; padding: 24px; max-width: 780px; margin: 0 auto; }
-  @media print {
-    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    body { padding: 0; }
-    @page { margin: 16mm; size: A4; }
+  function generateJsPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const W = 210; // A4 width mm
+    const margin = 14;
+    const contentW = W - margin * 2;
+    let y = margin;
+
+    // ── helpers ──────────────────────────────────────────────────────
+    function checkPage(needed) {
+      if (y + needed > 280) { doc.addPage(); y = margin; }
+    }
+
+    function drawRect(x, iy, w, h, fillColor) {
+      doc.setFillColor(...fillColor);
+      doc.roundedRect(x, iy, w, h, 2, 2, 'F');
+    }
+
+    function text(txt, x, iy, opts = {}) {
+      doc.setFontSize(opts.size || 10);
+      doc.setTextColor(...(opts.color || [44, 44, 42]));
+      doc.setFont('helvetica', opts.bold ? 'bold' : 'normal');
+      const lines = doc.splitTextToSize(String(txt), opts.maxW || contentW);
+      doc.text(lines, x, iy);
+      return lines.length * (opts.lineH || (opts.size || 10) * 0.4);
+    }
+
+    // ── COVER BLOCK ──────────────────────────────────────────────────
+    drawRect(margin, y, contentW, 38, [0, 106, 77]);
+    doc.setFontSize(7); doc.setTextColor(200, 240, 225); doc.setFont('helvetica','normal');
+    doc.text('CBRE · SBM Management Services', margin + 4, y + 6);
+    doc.setFontSize(16); doc.setTextColor(255,255,255); doc.setFont('helvetica','bold');
+    doc.text('BI Janitorial Audit', margin + 4, y + 14);
+    doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(200,240,225);
+    doc.text(site + (building ? ' · ' + building : ''), margin + 4, y + 20);
+
+    // Score badge top right
+    doc.setFontSize(20); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
+    doc.text(overall, W - margin - 4, y + 16, { align: 'right' });
+    doc.setFontSize(8); doc.setFont('helvetica','normal');
+    doc.text(overallBand, W - margin - 4, y + 22, { align: 'right' });
+
+    // Stats row
+    const stats = [
+      { val: String(totalCount), lbl: 'Scored' },
+      { val: String(failCount),  lbl: 'Failed' },
+      { val: String(naCount),    lbl: 'N/A' },
+      { val: inspectedBy || '—', lbl: 'Inspector' },
+      { val: inspDate || '—',    lbl: 'Date' },
+    ];
+    const statW = contentW / stats.length;
+    stats.forEach((s, i) => {
+      doc.setFillColor(255,255,255,0.12);
+      const sx = margin + i * statW + 1;
+      doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
+      doc.text(s.val.length > 12 ? s.val.substring(0,12) : s.val, sx + statW/2 - 1, y + 30, { align: 'center' });
+      doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(200,240,225);
+      doc.text(s.lbl, sx + statW/2 - 1, y + 35, { align: 'center' });
+    });
+    y += 44;
+
+    // ── FAILED ITEMS ─────────────────────────────────────────────────
+    const failedItems = SECTIONS.filter(sec => {
+      const v = scores[sec.id];
+      return v && v !== 'na' && parseInt(v) <= 2;
+    });
+
+    if (failedItems.length > 0) {
+      checkPage(10 + failedItems.length * 10);
+      drawRect(margin, y, contentW, 8, [252, 235, 235]);
+      doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(139,0,0);
+      doc.text('⚠  Items Needing Attention (' + failedItems.length + ')', margin + 3, y + 5.5);
+      y += 10;
+
+      failedItems.forEach(sec => {
+        checkPage(12);
+        const v = scores[sec.id];
+        const note = comments[sec.id] || '';
+        drawRect(margin, y, contentW, note ? 14 : 10, [255, 248, 248]);
+        doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(44,44,42);
+        doc.text(sec.title, margin + 3, y + 6);
+        // Score badge
+        doc.setFillColor(v === '1' ? 139 : 184, v === '1' ? 0 : 64, v === '1' ? 0 : 0);
+        doc.circle(W - margin - 6, y + 5, 4, 'F');
+        doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
+        doc.text(v, W - margin - 6, y + 6.5, { align: 'center' });
+        if (note) {
+          doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(92,92,88);
+          doc.text(note.substring(0, 90), margin + 3, y + 11);
+        }
+        y += note ? 16 : 12;
+      });
+      y += 4;
+    }
+
+    // ── SECTION SCORES ───────────────────────────────────────────────
+    const SCORE_COLORS_RGB = {
+      '5':[0,106,77], '4':[59,122,22], '3':[196,122,0], '2':[184,64,0], '1':[154,24,24], 'na':[158,158,153]
+    };
+    const SCORE_BG_RGB = {
+      '5':[225,245,238], '4':[234,243,222], '3':[255,251,240], '2':[255,244,239], '1':[255,242,242], 'na':[244,244,244]
+    };
+
+    let lastGroup = '';
+    for (let si = 0; si < SECTIONS.length; si++) {
+      const sec = SECTIONS[si];
+      const v = scores[sec.id];
+      const note = comments[sec.id] || '';
+      const secPhotos = (photos[sec.id] || []).filter(Boolean);
+
+      // Group label
+      if (sec.group !== lastGroup) {
+        checkPage(10);
+        doc.setFontSize(7); doc.setFont('helvetica','bold');
+        doc.setTextColor(158,158,153);
+        doc.text(sec.group.toUpperCase(), margin, y + 4);
+        y += 8;
+        lastGroup = sec.group;
+      }
+
+      // Estimate height needed
+      const condLines = sec.conditions.reduce((t, c) => t + doc.splitTextToSize(c, contentW - 10).length, 0);
+      const noteLines = note ? doc.splitTextToSize(note, contentW - 10).length : 0;
+      const photoRows = secPhotos.length > 0 ? Math.ceil(secPhotos.length / 3) : 0;
+      const estH = 12 + (condLines * 4.5) + (note ? 8 + noteLines * 4.5 : 0) + (photoRows > 0 ? 8 + photoRows * 36 : 0) + 6;
+      checkPage(Math.min(estH, 60));
+
+      // Section header bar
+      const scoreColor = v ? SCORE_COLORS_RGB[v] : [158,158,153];
+      const scoreBg    = v ? SCORE_BG_RGB[v]    : [244,244,244];
+      drawRect(margin, y, contentW, 10, [0,106,77]);
+      doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
+      doc.text(sec.num + '. ' + sec.title, margin + 3, y + 7);
+      // Score on right
+      const scoreDisp = v ? (v === 'na' ? 'N/A' : v) : '—';
+      const scoreLbl  = v ? (SCORE_LABELS[v] || '') : 'Not scored';
+      drawRect(W - margin - 28, y + 1.5, 27, 7, scoreBg);
+      doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(...scoreColor);
+      doc.text(scoreDisp + '  ' + scoreLbl, W - margin - 1, y + 7, { align: 'right' });
+      y += 12;
+
+      // Conditions
+      doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(158,158,153);
+      doc.text('GENERAL CONDITIONS', margin, y);
+      y += 4;
+      sec.conditions.forEach(c => {
+        const lines = doc.splitTextToSize('• ' + c, contentW - 4);
+        checkPage(lines.length * 4.5 + 2);
+        doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(92,92,88);
+        doc.text(lines, margin + 2, y);
+        y += lines.length * 4.5;
+      });
+      y += 2;
+
+      // Comments
+      if (note) {
+        checkPage(14);
+        doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(158,158,153);
+        doc.text('COMMENTS', margin, y);
+        y += 4;
+        drawRect(margin, y, contentW, 2, [232,232,229]);
+        const noteLines2 = doc.splitTextToSize(note, contentW - 6);
+        drawRect(margin, y, contentW, noteLines2.length * 4.5 + 5, [249,249,248]);
+        doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(44,44,42);
+        doc.text(noteLines2, margin + 3, y + 4);
+        y += noteLines2.length * 4.5 + 7;
+      }
+
+      // Photos embedded
+      if (secPhotos.length > 0) {
+        checkPage(10);
+        doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(158,158,153);
+        doc.text('PHOTOS (' + secPhotos.length + ')', margin, y);
+        y += 5;
+        const imgW = (contentW - (2 * 3)) / 3; // 3 per row with 3mm gap
+        secPhotos.forEach((src, idx) => {
+          const col = idx % 3;
+          const imgX = margin + col * (imgW + 3);
+          if (col === 0 && idx > 0) { y += imgW * 0.75 + 3; }
+          checkPage(imgW * 0.75 + 4);
+          try {
+            // Detect image format from data URL
+            const fmt = src.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+            doc.addImage(src, fmt, imgX, y, imgW, imgW * 0.75);
+          } catch(e) {
+            // If image fails just note it
+            drawRect(imgX, y, imgW, imgW * 0.75, [240,240,240]);
+            doc.setFontSize(7); doc.setTextColor(158,158,153);
+            doc.text('Photo ' + (idx+1), imgX + imgW/2, y + imgW * 0.375, { align: 'center' });
+          }
+        });
+        // Move past last row of photos
+        const lastRowCount = secPhotos.length % 3 || 3;
+        if (lastRowCount > 0) y += imgW * 0.75 + 5;
+      }
+
+      y += 6; // gap between sections
+    }
+
+    // ── FOOTER ───────────────────────────────────────────────────────
+    const pageCount = doc.getNumberOfPages();
+    for (let p = 1; p <= pageCount; p++) {
+      doc.setPage(p);
+      doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(180,180,180);
+      doc.text('BI Janitorial Audit · CBRE IFM · SBM Management Services · Generated ' + new Date().toLocaleDateString(), margin, 292);
+      doc.text('Page ' + p + ' of ' + pageCount, W - margin, 292, { align: 'right' });
+    }
+
+    // ── SAVE ─────────────────────────────────────────────────────────
+    doc.save('BI_Janitorial_Audit_' + siteStr + '_' + dateStr + '.pdf');
   }
-</style>
-</head>
-<body>
-
-  <!-- COVER -->
-  <div style="background:#006A4D;border-radius:10px;padding:24px;margin-bottom:20px;color:#fff;">
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;">
-      <div>
-        <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:rgba(255,255,255,0.65);margin-bottom:4px;">CBRE · SBM Management Services</div>
-        <div style="font-size:22px;font-weight:700;line-height:1.2;">BI Janitorial Audit</div>
-        <div style="font-size:13px;color:rgba(255,255,255,0.8);margin-top:4px;">${site}${building ? ' · ' + building : ''}</div>
-      </div>
-      <div style="text-align:right;">
-        <div style="font-size:32px;font-weight:700;color:#fff;">${overall}</div>
-        <div style="font-size:11px;font-weight:600;padding:3px 12px;border-radius:20px;background:rgba(255,255,255,0.18);display:inline-block;margin-top:2px;">${overallBand}</div>
-      </div>
-    </div>
-    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;">
-      <div style="background:rgba(255,255,255,0.12);border-radius:6px;padding:6px 14px;text-align:center;">
-        <div style="font-size:16px;font-weight:600;">${totalCount}</div>
-        <div style="font-size:9px;color:rgba(255,255,255,0.65);">Sections scored</div>
-      </div>
-      <div style="background:rgba(255,255,255,0.12);border-radius:6px;padding:6px 14px;text-align:center;">
-        <div style="font-size:16px;font-weight:600;">${failCount}</div>
-        <div style="font-size:9px;color:rgba(255,255,255,0.65);">Failed items</div>
-      </div>
-      <div style="background:rgba(255,255,255,0.12);border-radius:6px;padding:6px 14px;text-align:center;">
-        <div style="font-size:16px;font-weight:600;">${naCount}</div>
-        <div style="font-size:9px;color:rgba(255,255,255,0.65);">N/A sections</div>
-      </div>
-      <div style="background:rgba(255,255,255,0.12);border-radius:6px;padding:6px 14px;flex:1;">
-        <div style="font-size:11px;color:rgba(255,255,255,0.65);margin-bottom:2px;">Inspected by</div>
-        <div style="font-size:13px;font-weight:600;">${inspectedBy || '—'}</div>
-      </div>
-      <div style="background:rgba(255,255,255,0.12);border-radius:6px;padding:6px 14px;flex:1;">
-        <div style="font-size:11px;color:rgba(255,255,255,0.65);margin-bottom:2px;">Date</div>
-        <div style="font-size:13px;font-weight:600;">${inspDate || '—'}</div>
-      </div>
-    </div>
-  </div>
-
-  ${failedHTML}
-
-  ${sectionsHTML}
-
-  <div style="margin-top:24px;padding-top:12px;border-top:1px solid #eee;font-size:10px;color:#aaa;text-align:center;">
-    BI Janitorial Audit · CBRE IFM · SBM Management Services · Generated ${new Date().toLocaleString()}
-  </div>
-
-</body>
-</html>`;
-
-  // Open in new tab and trigger print
-  const printWin = window.open('', '_blank');
-  if (!printWin) {
-    alert('Please allow pop-ups for this site to export the PDF, then try again.');
-    return;
-  }
-  printWin.document.write(html);
-  printWin.document.close();
-  printWin.onload = function() {
-    setTimeout(() => {
-      printWin.focus();
-      printWin.print();
-    }, 400);
-  };
 }
 
 
