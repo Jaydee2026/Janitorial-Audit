@@ -393,19 +393,30 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     <div class="modal-section-title">Section Scores</div>
     <div id="modal-section-rows" style="margin-bottom:16px"></div>
 
+    <div style="background:var(--green-light);border-radius:var(--radius-md);padding:14px;margin-bottom:10px;border:1px solid var(--green-mid)">
+      <div style="font-size:10px;font-weight:600;color:#005C43;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Submit Audit</div>
+      <div style="font-size:12px;color:#005C43;line-height:1.6;margin-bottom:10px;">Tapping Submit will download your PDF, CSV, and all photos. Then Outlook will open with the subject line pre-filled — attach your files and tap Send.</div>
+      <button class="btn-submit" onclick="submitAudit()" style="background:var(--green);margin-bottom:0;">
+        Submit Audit &amp; Prepare Email
+      </button>
+    </div>
+
     <div style="background:var(--gray-50);border-radius:var(--radius-md);padding:12px;margin-bottom:10px">
-      <div style="font-size:10px;font-weight:600;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Export Audit</div>
+      <div style="font-size:10px;font-weight:600;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Individual Exports</div>
       <div style="display:flex;flex-direction:column;gap:8px">
         <button class="btn-export" onclick="exportPDF()">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-          Export to PDF — includes photos
+          Export PDF only
         </button>
         <button class="btn-export" onclick="exportCSV()">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Export to CSV — for Smartsheet / Power BI
+          Export CSV only
+        </button>
+        <button class="btn-export" onclick="exportPhotos()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          Export Photos only
         </button>
       </div>
-      <div style="font-size:10px;color:var(--gray-400);margin-top:8px;line-height:1.5;">Export both files then email them to your CBRE address. Your audit stays open until you tap Start New Audit.</div>
     </div>
 
     <button class="btn-close-modal" onclick="closeModal()">Close</button>
@@ -981,6 +992,82 @@ function showResults() {
   document.getElementById('ms-na').textContent = naCount;
   document.getElementById('modal-section-rows').innerHTML = rows.join('');
   document.getElementById('results-modal').classList.add('open');
+}
+
+function submitAudit() {
+  const site        = document.getElementById('site').value        || 'Site not set';
+  const inspDate    = document.getElementById('insp-date').value   || '';
+  const building    = document.getElementById('building').value    || '';
+  const inspectedBy = document.getElementById('inspected-by').value|| '';
+
+  // Build site slug for subject line — strip state abbreviation for clean subject
+  const siteShort = site.split(',')[0].trim(); // e.g. "St. Joseph" from "St. Joseph, MO"
+  const subject   = encodeURIComponent('Janitorial Audit - ' + siteShort);
+  const dateStr   = inspDate ? inspDate.replace(/-/g, '') : 'nodate';
+  const siteStr   = site.replace(/[^a-zA-Z0-9]/g, '_');
+
+  // Step 1 — download PDF
+  exportPDF();
+
+  // Step 2 — download CSV after short delay so browser handles both
+  setTimeout(() => {
+    exportCSV();
+  }, 800);
+
+  // Step 3 — download each photo after another delay
+  setTimeout(() => {
+    exportPhotos();
+  }, 1600);
+
+  // Step 4 — open Outlook with pre-filled subject and instructions in body
+  setTimeout(() => {
+    const photoCount = SECTIONS.reduce((total, sec) => {
+      return total + (photos[sec.id] ? photos[sec.id].filter(Boolean).length : 0);
+    }, 0);
+
+    const body = encodeURIComponent(
+      'BI Janitorial Audit Submission\n\n' +
+      'Site: ' + site + '\n' +
+      'Date: ' + inspDate + '\n' +
+      'Building: ' + building + '\n' +
+      'Inspected By: ' + inspectedBy + '\n\n' +
+      '---\n' +
+      'FILES TO ATTACH FROM YOUR DOWNLOADS FOLDER:\n' +
+      '1. BI_Janitorial_Audit_' + siteStr + '_' + dateStr + '.pdf\n' +
+      '2. BI_Janitorial_Audit_' + siteStr + '_' + dateStr + '.csv\n' +
+      (photoCount > 0 ? '3. ' + photoCount + ' photo file(s) — named by section (e.g. Restrooms_Photo_1.jpg)\n' : '') +
+      '\nPlease attach all files before sending.\n'
+    );
+
+    window.location.href = 'mailto:?subject=' + subject + '&body=' + body;
+  }, 2400);
+}
+
+function exportPhotos() {
+  const site    = document.getElementById('site').value    || '';
+  const inspDate = document.getElementById('insp-date').value || '';
+  const dateStr = inspDate ? inspDate.replace(/-/g, '') : 'nodate';
+
+  let photoCount = 0;
+  SECTIONS.forEach(sec => {
+    const secPhotos = (photos[sec.id] || []).filter(Boolean);
+    secPhotos.forEach((dataUrl, idx) => {
+      // Small delay between each download so browser doesn't block them
+      setTimeout(() => {
+        const a = document.createElement('a');
+        // Convert section title to safe filename
+        const secName = sec.title.replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
+        a.href = dataUrl;
+        a.download = secName + '_Photo_' + (idx + 1) + '_' + dateStr + '.jpg';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }, photoCount * 300);
+      photoCount++;
+    });
+  });
+
+  return photoCount;
 }
 
 function exportPDF() {
