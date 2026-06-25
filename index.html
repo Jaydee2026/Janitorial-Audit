@@ -1060,13 +1060,22 @@ function submitAudit() {
         <div style="font-size:11px;color:var(--gray-600);margin-bottom:10px;line-height:1.6;">
           Copy the subject line below, open Outlook, create a new email, paste it as the subject, attach all downloaded files, and send to yourself.
         </div>
-        <div style="display:flex;align-items:center;gap:8px;background:#fff;border:1.5px solid var(--green-mid);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:10px;">
-          <div style="flex:1;font-size:13px;font-weight:600;color:var(--green);" id="subject-line-display">Janitorial Audit - ${siteShort}</div>
-          <button onclick="copySubject('Janitorial Audit - ${siteShort}');" style="height:32px;padding:0 12px;background:var(--green);color:#fff;border:none;border-radius:var(--radius-sm);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">Copy</button>
+        <div style="background:#fff;border:1.5px solid var(--green-mid);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:10px;">
+          <div style="font-size:10px;font-weight:600;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Email Subject Line</div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="flex:1;font-size:13px;font-weight:600;color:var(--green);" id="subject-line-display">Janitorial Audit - ${siteShort}</div>
+            <button onclick="copySubject('Janitorial Audit - ${siteShort}');" style="height:32px;padding:0 12px;background:var(--green);color:#fff;border:none;border-radius:var(--radius-sm);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">Copy</button>
+          </div>
         </div>
-        <a href="ms-outlook://" style="display:flex;align-items:center;justify-content:center;gap:8px;height:44px;background:#0078D4;color:#fff;border-radius:var(--radius-sm);font-size:14px;font-weight:600;text-decoration:none;-webkit-tap-highlight-color:transparent;">
-          ✉️ Open Outlook
-        </a>
+        <div style="background:var(--amber-light);border-radius:var(--radius-sm);padding:10px 12px;font-size:12px;color:#5C3D00;line-height:1.7;">
+          <strong>To send your audit:</strong><br>
+          1. Tap <strong>Copy</strong> above to copy the subject line<br>
+          2. Open <strong>Outlook</strong> on your phone<br>
+          3. Compose a new email to yourself<br>
+          4. Paste the subject line<br>
+          5. Attach your downloaded files from the <strong>Downloads folder</strong><br>
+          6. Tap <strong>Send</strong>
+        </div>
       </div>
 
       <button onclick="closeSubmitModal();" style="width:100%;height:44px;background:transparent;color:var(--gray-400);border:1.5px solid var(--gray-200);border-radius:var(--radius-md);font-size:13px;cursor:pointer;margin-top:4px;">Done</button>
