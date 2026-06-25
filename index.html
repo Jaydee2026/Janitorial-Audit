@@ -1007,82 +1007,54 @@ function submitAudit() {
     return total + (photos[sec.id] ? photos[sec.id].filter(Boolean).length : 0);
   }, 0);
 
-  const subject = encodeURIComponent('Janitorial Audit - ' + siteShort);
-  const body    = encodeURIComponent(
-    'BI Janitorial Audit Submission\n\n' +
-    'Site: ' + site + '\n' +
-    'Date: ' + inspDate + '\n' +
-    'Building: ' + building + '\n' +
-    'Inspected By: ' + inspectedBy + '\n\n' +
-    'Please find attached:\n' +
-    '• PDF report: BI_Janitorial_Audit_' + siteStr + '_' + dateStr + '.pdf\n' +
-    '• CSV data:   BI_Janitorial_Audit_' + siteStr + '_' + dateStr + '.csv\n' +
-    (photoCount > 0 ? '• ' + photoCount + ' photo(s) — see attached JPG files\n' : '') +
-    '\nThis audit was submitted via the BI Janitorial Audit app.\n'
-  );
-
-  // Close results modal and show step-by-step submit modal
   closeModal();
 
-  // Build step modal content
-  const stepItems = [
-    { id: 'step-pdf',    label: '1. Download PDF Report',   fn: 'exportPDF()',    icon: '📄' },
-    { id: 'step-csv',    label: '2. Download CSV Data',     fn: 'exportCSV()',    icon: '📊' },
-  ];
-  if (photoCount > 0) {
-    stepItems.push({ id: 'step-photos', label: '3. Download ' + photoCount + ' Photo(s)', fn: 'exportPhotos()', icon: '📷' });
-  }
-  const outlookStep = photoCount > 0 ? '4' : '3';
-
-  const stepHTML = stepItems.map(s => `
-    <div id="${s.id}" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--gray-50);border:1.5px solid var(--gray-200);border-radius:var(--radius-md);margin-bottom:8px;">
-      <div style="font-size:22px;width:32px;text-align:center;">${s.icon}</div>
-      <div style="flex:1;">
-        <div style="font-size:13px;font-weight:600;color:var(--gray-800);">${s.label}</div>
-        <div style="font-size:11px;color:var(--gray-400);">Tap to download</div>
-      </div>
-      <button onclick="${s.fn};markStepDone('${s.id}');" style="height:36px;padding:0 14px;background:var(--green);color:#fff;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;">Download</button>
-    </div>
-  `).join('');
-
+  // Show submit modal with single ZIP download button
   const modalContent = `
     <div style="padding:20px;">
       <div style="width:36px;height:4px;background:var(--gray-200);border-radius:2px;margin:0 auto 16px;"></div>
       <div style="font-size:18px;font-weight:700;color:var(--gray-800);margin-bottom:4px;">Submit Audit</div>
       <div style="font-size:12px;color:var(--gray-400);margin-bottom:16px;">${site} · ${inspDate} · ${inspectedBy}</div>
-      <div style="font-size:11px;color:var(--gray-600);background:var(--green-light);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:14px;line-height:1.6;">
-        Download each file below, copy the subject line, then open Outlook manually to send your email.
-      </div>
-      ${stepHTML}
 
-      <div style="margin-top:4px;padding:12px;background:var(--gray-50);border:1.5px solid var(--gray-200);border-radius:var(--radius-md);margin-bottom:8px;">
-        <div style="font-size:13px;font-weight:600;color:var(--gray-800);margin-bottom:8px;">${outlookStep}. Send in Outlook</div>
-        <div style="font-size:11px;color:var(--gray-600);margin-bottom:10px;line-height:1.6;">
-          Copy the subject line below, open Outlook, create a new email, paste it as the subject, attach all downloaded files, and send to yourself.
+      <div style="background:var(--green-light);border-radius:var(--radius-md);padding:12px;margin-bottom:14px;border:1px solid var(--green-mid);">
+        <div style="font-size:12px;color:#005C43;line-height:1.7;">
+          One tap downloads a single ZIP file containing:<br>
+          <strong>• PDF report</strong> with all scores and comments<br>
+          <strong>• CSV data</strong> for Smartsheet / Power BI<br>
+          ${photoCount > 0 ? '<strong>• ' + photoCount + ' photo(s)</strong> as individual JPG files<br>' : ''}
         </div>
-        <div style="background:#fff;border:1.5px solid var(--green-mid);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:10px;">
-          <div style="font-size:10px;font-weight:600;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Email Subject Line</div>
-          <div style="display:flex;align-items:center;gap:8px;">
+      </div>
+
+      <div id="zip-download-area">
+        <button id="btn-download-zip" onclick="downloadZIP();" style="width:100%;height:52px;background:var(--green);color:#fff;border:none;border-radius:var(--radius-md);font-size:15px;font-weight:600;cursor:pointer;margin-bottom:12px;-webkit-tap-highlight-color:transparent;">
+          📦 Download All Files (ZIP)
+        </button>
+      </div>
+
+      <div id="zip-done-area" style="display:none;">
+        <div style="background:var(--green-light);border:1px solid var(--green-mid);border-radius:var(--radius-md);padding:12px;margin-bottom:12px;">
+          <div style="font-size:13px;font-weight:600;color:var(--green);margin-bottom:8px;">✓ ZIP downloaded to your Downloads folder</div>
+          <div style="font-size:11px;color:#005C43;line-height:1.7;">
+            <strong>To send to SharePoint:</strong><br>
+            1. Open <strong>Outlook</strong> on your phone<br>
+            2. Compose a new email to yourself<br>
+            3. Tap the subject field and type or paste:<br>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;background:#fff;border:1.5px solid var(--green-mid);border-radius:var(--radius-sm);padding:8px 10px;margin:8px 0;">
             <div style="flex:1;font-size:13px;font-weight:600;color:var(--green);" id="subject-line-display">Janitorial Audit - ${siteShort}</div>
-            <button onclick="copySubject('Janitorial Audit - ${siteShort}');" style="height:32px;padding:0 12px;background:var(--green);color:#fff;border:none;border-radius:var(--radius-sm);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">Copy</button>
+            <button onclick="copySubject('Janitorial Audit - ${siteShort}');" style="height:30px;padding:0 10px;background:var(--green);color:#fff;border:none;border-radius:var(--radius-sm);font-size:12px;font-weight:600;cursor:pointer;">Copy</button>
+          </div>
+          <div style="font-size:11px;color:#005C43;line-height:1.7;">
+            4. Attach the ZIP file from your Downloads folder<br>
+            5. Tap <strong>Send</strong>
           </div>
         </div>
-        <div style="background:var(--amber-light);border-radius:var(--radius-sm);padding:10px 12px;font-size:12px;color:#5C3D00;line-height:1.7;">
-          <strong>To send your audit:</strong><br>
-          1. Tap <strong>Copy</strong> above to copy the subject line<br>
-          2. Open <strong>Outlook</strong> on your phone<br>
-          3. Compose a new email to yourself<br>
-          4. Paste the subject line<br>
-          5. Attach your downloaded files from the <strong>Downloads folder</strong><br>
-          6. Tap <strong>Send</strong>
-        </div>
       </div>
 
-      <button onclick="closeSubmitModal();" style="width:100%;height:44px;background:transparent;color:var(--gray-400);border:1.5px solid var(--gray-200);border-radius:var(--radius-md);font-size:13px;cursor:pointer;margin-top:4px;">Done</button>
+      <button onclick="closeSubmitModal();" style="width:100%;height:44px;background:transparent;color:var(--gray-400);border:1.5px solid var(--gray-200);border-radius:var(--radius-md);font-size:13px;cursor:pointer;">Done</button>
     </div>
   `;
 
-  // Create and show submit modal
   let overlay = document.getElementById('submit-modal-overlay');
   if (!overlay) {
     overlay = document.createElement('div');
@@ -1099,13 +1071,300 @@ function submitAudit() {
   overlay.style.display = 'flex';
 }
 
-function markStepDone(stepId) {
-  const step = document.getElementById(stepId);
-  if (!step) return;
-  step.style.borderColor = 'var(--green-mid)';
-  step.style.background  = 'var(--green-light)';
-  const btn = step.querySelector('button');
-  if (btn) { btn.textContent = '✓ Done'; btn.style.background = '#3B7A16'; btn.disabled = true; }
+function downloadZIP() {
+  const btn = document.getElementById('btn-download-zip');
+  if (btn) { btn.textContent = '⏳ Building ZIP...'; btn.disabled = true; }
+
+  const site        = document.getElementById('site').value        || 'Site not set';
+  const inspDate    = document.getElementById('insp-date').value   || '';
+  const building    = document.getElementById('building').value    || '';
+  const inspectedBy = document.getElementById('inspected-by').value|| '';
+  const dateStr     = inspDate ? inspDate.replace(/-/g, '') : 'nodate';
+  const siteStr     = site.replace(/[^a-zA-Z0-9]/g, '_');
+
+  function doZip() {
+    const JSZip = window.JSZip;
+    const zip   = new JSZip();
+
+    // ── CSV ──────────────────────────────────────────────────────────
+    const csvContent = buildCSVContent();
+    zip.file('BI_Janitorial_Audit_' + siteStr + '_' + dateStr + '.csv', csvContent);
+
+    // ── PHOTOS ───────────────────────────────────────────────────────
+    const photoFolder = zip.folder('Photos');
+    SECTIONS.forEach(sec => {
+      const secPhotos = (photos[sec.id] || []).filter(Boolean);
+      secPhotos.forEach((dataUrl, idx) => {
+        const secName = sec.title.replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
+        const base64  = dataUrl.split(',')[1];
+        const ext     = dataUrl.startsWith('data:image/png') ? 'png' : 'jpg';
+        photoFolder.file(secName + '_Photo_' + (idx + 1) + '_' + dateStr + '.' + ext, base64, { base64: true });
+      });
+    });
+
+    // ── PDF via jsPDF ────────────────────────────────────────────────
+    const pdfBytes = buildPDFBytes();
+    if (pdfBytes) {
+      zip.file('BI_Janitorial_Audit_' + siteStr + '_' + dateStr + '.pdf', pdfBytes);
+    }
+
+    // ── GENERATE & DOWNLOAD ──────────────────────────────────────────
+    zip.generateAsync({ type: 'blob' }).then(blob => {
+      const url = URL.createObjectURL(blob);
+      const a   = document.createElement('a');
+      a.href     = url;
+      a.download = 'BI_Janitorial_Audit_' + siteStr + '_' + dateStr + '.zip';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      // Show done state
+      const dlArea   = document.getElementById('zip-download-area');
+      const doneArea = document.getElementById('zip-done-area');
+      if (dlArea)   dlArea.style.display   = 'none';
+      if (doneArea) doneArea.style.display = 'block';
+    });
+  }
+
+  // Load JSZip if not already loaded
+  if (typeof window.JSZip === 'undefined') {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    s.onload = () => {
+      // Also load jsPDF if needed
+      if (typeof window.jspdf === 'undefined') {
+        const s2 = document.createElement('script');
+        s2.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        s2.onload = doZip;
+        s2.onerror = () => { if (btn) { btn.textContent = 'PDF unavailable — download CSV + Photos only'; btn.disabled = false; } doZip(); };
+        document.head.appendChild(s2);
+      } else { doZip(); }
+    };
+    s.onerror = () => alert('Could not load ZIP library. Check your internet connection and try again.');
+    document.head.appendChild(s);
+  } else if (typeof window.jspdf === 'undefined') {
+    const s2 = document.createElement('script');
+    s2.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    s2.onload = doZip;
+    s2.onerror = doZip;
+    document.head.appendChild(s2);
+  } else {
+    doZip();
+  }
+}
+
+function buildCSVContent() {
+  const site        = document.getElementById('site').value        || '';
+  const inspDate    = document.getElementById('insp-date').value   || '';
+  const building    = document.getElementById('building').value    || '';
+  const inspectedBy = document.getElementById('inspected-by').value|| '';
+
+  let totalSum = 0, totalCount = 0, naCount = 0, failCount = 0;
+  SECTIONS.forEach(sec => {
+    const v = scores[sec.id];
+    if (!v) return;
+    if (v === 'na') { naCount++; return; }
+    const n = parseInt(v); totalSum += n; totalCount++;
+    if (n <= 2) failCount++;
+  });
+
+  const overall     = totalCount > 0 ? (totalSum / totalCount).toFixed(2) : '';
+  const overallBand = overall === '' ? '' :
+    parseFloat(overall) >= 4.0 ? 'Exceeds Target' :
+    parseFloat(overall) >= 3.0 ? 'Meets Target' :
+    parseFloat(overall) >= 2.5 ? 'Needs Improvement' : 'Below Target';
+
+  const SCORE_LABELS = {'5':'Exceeds Target','4':'Meets Target','3':'Needs Improvement','2':'Target Not Met','1':'Failure','na':'Not Applicable'};
+
+  function q(val) { const s = (val === null || val === undefined) ? '' : String(val); return '"' + s.replace(/"/g, '""') + '"'; }
+
+  const rows = [];
+  rows.push([q('Janitorial Audit Form'),q(''),q(''),q(''),q('')].join(','));
+  rows.push([q('Site:'),q(site),q(''),q('Inspection Date:'),q(inspDate)].join(','));
+  rows.push([q('Building:'),q(building),q(''),q('Inspected By:'),q(inspectedBy)].join(','));
+  rows.push([q(''),q(''),q(''),q(''),q('')].join(','));
+  rows.push([q('Category'),q('General Conditions'),q('Audit Score'),q('Score Label'),q('Comments'),q('Failed / Low Score Flag'),q('Overall Audit Score'),q('Score Band')].join(','));
+
+  SECTIONS.forEach(sec => {
+    const v = scores[sec.id];
+    rows.push([
+      q(sec.title),
+      q(sec.conditions.join(' | ')),
+      q(v ? (v === 'na' ? 'N/A' : v) : ''),
+      q(v ? (SCORE_LABELS[v] || '') : ''),
+      q(comments[sec.id] || ''),
+      q(v && v !== 'na' && parseInt(v) <= 2 ? 'YES' : ''),
+      q(overall),
+      q(overallBand)
+    ].join(','));
+  });
+
+  rows.push([q(''),q(''),q(''),q(''),q(''),q(''),q(''),q('')].join(','));
+  rows.push([q('Janitorial Audit Score'),q(''),q(overall),q(overallBand),q(''),q(''),q(''),q('')].join(','));
+  rows.push([q(''),q(''),q(''),q(''),q(''),q(''),q(''),q('')].join(','));
+  rows.push([q('Legend'),q(''),q(''),q(''),q(''),q(''),q(''),q('')].join(','));
+  rows.push([q('Exceeds Target'),q('5'),q(''),q(''),q(''),q(''),q(''),q('')].join(','));
+  rows.push([q('Meets Target'),q('4'),q(''),q(''),q(''),q(''),q(''),q('')].join(','));
+  rows.push([q('Needs Improvement'),q('3'),q(''),q(''),q(''),q(''),q(''),q('')].join(','));
+  rows.push([q('Target Not Met'),q('2'),q(''),q(''),q(''),q(''),q(''),q('')].join(','));
+  rows.push([q('Failure'),q('1'),q(''),q(''),q(''),q(''),q(''),q('')].join(','));
+  rows.push([q('Not Applicable'),q('N/A'),q(''),q(''),q(''),q(''),q(''),q('')].join(','));
+  rows.push([q('Sections Scored'),q(totalCount),q(''),q(''),q(''),q(''),q(''),q('')].join(','));
+  rows.push([q('N/A Sections'),q(naCount),q(''),q(''),q(''),q(''),q(''),q('')].join(','));
+  rows.push([q('Failed Items'),q(failCount),q(''),q(''),q(''),q(''),q(''),q('')].join(','));
+
+  return '\uFEFF' + rows.join('\r\n');
+}
+
+function buildPDFBytes() {
+  if (typeof window.jspdf === 'undefined') return null;
+  try {
+    const { jsPDF } = window.jspdf;
+    const site        = document.getElementById('site').value        || 'Site not set';
+    const inspDate    = document.getElementById('insp-date').value   || '';
+    const building    = document.getElementById('building').value    || '';
+    const inspectedBy = document.getElementById('inspected-by').value|| '';
+    const SCORE_LABELS = {'5':'Exceeds Target','4':'Meets Target','3':'Needs Improvement','2':'Target Not Met','1':'Failure','na':'Not Applicable'};
+
+    let totalSum = 0, totalCount = 0, naCount = 0, failCount = 0;
+    SECTIONS.forEach(sec => {
+      const v = scores[sec.id]; if (!v) return;
+      if (v === 'na') { naCount++; return; }
+      const n = parseInt(v); totalSum += n; totalCount++;
+      if (n <= 2) failCount++;
+    });
+    const overall     = totalCount > 0 ? (totalSum / totalCount).toFixed(2) : '—';
+    const overallBand = overall === '—' ? 'No sections scored' :
+      parseFloat(overall) >= 4.0 ? 'Exceeds Target' :
+      parseFloat(overall) >= 3.0 ? 'Meets Target' :
+      parseFloat(overall) >= 2.5 ? 'Needs Improvement' : 'Below Target';
+
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const W = 210, margin = 14, contentW = W - margin * 2;
+    let y = margin;
+
+    function checkPage(needed) { if (y + needed > 280) { doc.addPage(); y = margin; } }
+    function drawRect(x, iy, w, h, fill) { doc.setFillColor(...fill); doc.roundedRect(x, iy, w, h, 2, 2, 'F'); }
+
+    // Cover
+    drawRect(margin, y, contentW, 38, [0,106,77]);
+    doc.setFontSize(7); doc.setTextColor(200,240,225); doc.setFont('helvetica','normal');
+    doc.text('CBRE · SBM Management Services', margin+4, y+6);
+    doc.setFontSize(16); doc.setTextColor(255,255,255); doc.setFont('helvetica','bold');
+    doc.text('BI Janitorial Audit', margin+4, y+14);
+    doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(200,240,225);
+    doc.text(site + (building ? ' · '+building : ''), margin+4, y+20);
+    doc.setFontSize(20); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
+    doc.text(overall, W-margin-4, y+16, {align:'right'});
+    doc.setFontSize(8); doc.setFont('helvetica','normal');
+    doc.text(overallBand, W-margin-4, y+22, {align:'right'});
+    const stats = [{val:String(totalCount),lbl:'Scored'},{val:String(failCount),lbl:'Failed'},{val:String(naCount),lbl:'N/A'},{val:inspectedBy||'—',lbl:'Inspector'},{val:inspDate||'—',lbl:'Date'}];
+    const statW = contentW / stats.length;
+    stats.forEach((s,i) => {
+      doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
+      doc.text(s.val.length > 12 ? s.val.substring(0,12) : s.val, margin+i*statW+statW/2, y+30, {align:'center'});
+      doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(200,240,225);
+      doc.text(s.lbl, margin+i*statW+statW/2, y+35, {align:'center'});
+    });
+    y += 44;
+
+    // Failed items
+    const failedItems = SECTIONS.filter(sec => { const v=scores[sec.id]; return v && v!=='na' && parseInt(v)<=2; });
+    if (failedItems.length > 0) {
+      checkPage(10 + failedItems.length * 12);
+      drawRect(margin, y, contentW, 8, [252,235,235]);
+      doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(139,0,0);
+      doc.text('Items Needing Attention (' + failedItems.length + ')', margin+3, y+5.5);
+      y += 10;
+      failedItems.forEach(sec => {
+        checkPage(12);
+        const v = scores[sec.id]; const note = comments[sec.id]||'';
+        drawRect(margin, y, contentW, note ? 14 : 10, [255,248,248]);
+        doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(44,44,42);
+        doc.text(sec.title, margin+3, y+6);
+        doc.setFillColor(v==='1'?139:184, v==='1'?0:64, 0);
+        doc.circle(W-margin-6, y+5, 4, 'F');
+        doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
+        doc.text(v, W-margin-6, y+6.5, {align:'center'});
+        if (note) { doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(92,92,88); doc.text(note.substring(0,90), margin+3, y+11); }
+        y += note ? 16 : 12;
+      });
+      y += 4;
+    }
+
+    // Sections
+    const SCORE_COLORS_RGB = {'5':[0,106,77],'4':[59,122,22],'3':[196,122,0],'2':[184,64,0],'1':[154,24,24],'na':[158,158,153]};
+    const SCORE_BG_RGB     = {'5':[225,245,238],'4':[234,243,222],'3':[255,251,240],'2':[255,244,239],'1':[255,242,242],'na':[244,244,244]};
+    let lastGroup = '';
+    SECTIONS.forEach(sec => {
+      const v = scores[sec.id]; const note = comments[sec.id]||''; const secPhotos = (photos[sec.id]||[]).filter(Boolean);
+      if (sec.group !== lastGroup) {
+        checkPage(10);
+        doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(158,158,153);
+        doc.text(sec.group.toUpperCase(), margin, y+4); y += 8; lastGroup = sec.group;
+      }
+      checkPage(20);
+      drawRect(margin, y, contentW, 10, [0,106,77]);
+      doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
+      doc.text(sec.num+'. '+sec.title, margin+3, y+7);
+      const scoreDisp = v ? (v==='na'?'N/A':v) : '—';
+      const scoreLbl  = v ? (SCORE_LABELS[v]||'') : 'Not scored';
+      const sColor = v ? SCORE_COLORS_RGB[v] : [158,158,153];
+      const sBg    = v ? SCORE_BG_RGB[v]    : [244,244,244];
+      drawRect(W-margin-30, y+1.5, 29, 7, sBg);
+      doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(...sColor);
+      doc.text(scoreDisp+'  '+scoreLbl, W-margin-1, y+7, {align:'right'});
+      y += 12;
+      doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(158,158,153);
+      doc.text('GENERAL CONDITIONS', margin, y); y += 4;
+      sec.conditions.forEach(c => {
+        const lines = doc.splitTextToSize('• '+c, contentW-4);
+        checkPage(lines.length*4.5+2);
+        doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(92,92,88);
+        doc.text(lines, margin+2, y); y += lines.length*4.5;
+      });
+      y += 2;
+      if (note) {
+        checkPage(14);
+        doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(158,158,153);
+        doc.text('COMMENTS', margin, y); y += 4;
+        const noteLines = doc.splitTextToSize(note, contentW-6);
+        drawRect(margin, y, contentW, noteLines.length*4.5+5, [249,249,248]);
+        doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(44,44,42);
+        doc.text(noteLines, margin+3, y+4); y += noteLines.length*4.5+7;
+      }
+      if (secPhotos.length > 0) {
+        checkPage(10);
+        doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(158,158,153);
+        doc.text('PHOTOS ('+secPhotos.length+')', margin, y); y += 5;
+        const imgW = (contentW-6)/3;
+        secPhotos.forEach((src, idx) => {
+          const col = idx%3; const imgX = margin+col*(imgW+3);
+          if (col===0 && idx>0) y += imgW*0.75+3;
+          checkPage(imgW*0.75+4);
+          try { doc.addImage(src, src.startsWith('data:image/png')?'PNG':'JPEG', imgX, y, imgW, imgW*0.75); }
+          catch(e) { drawRect(imgX, y, imgW, imgW*0.75, [240,240,240]); }
+        });
+        y += imgW*0.75+5;
+      }
+      y += 6;
+    });
+
+    // Page numbers
+    const pc = doc.getNumberOfPages();
+    for (let p=1; p<=pc; p++) {
+      doc.setPage(p);
+      doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(180,180,180);
+      doc.text('BI Janitorial Audit · CBRE IFM · SBM Management Services', margin, 292);
+      doc.text('Page '+p+' of '+pc, W-margin, 292, {align:'right'});
+    }
+
+    return doc.output('arraybuffer');
+  } catch(e) {
+    console.error('PDF build error:', e);
+    return null;
+  }
 }
 
 function closeSubmitModal() {
@@ -1136,407 +1395,65 @@ function copySubject(text) {
 
 
 function exportPhotos() {
-  const site    = document.getElementById('site').value    || '';
   const inspDate = document.getElementById('insp-date').value || '';
-  const dateStr = inspDate ? inspDate.replace(/-/g, '') : 'nodate';
-
+  const dateStr  = inspDate ? inspDate.replace(/-/g, '') : 'nodate';
   let photoCount = 0;
   SECTIONS.forEach(sec => {
     const secPhotos = (photos[sec.id] || []).filter(Boolean);
     secPhotos.forEach((dataUrl, idx) => {
-      // Small delay between each download so browser doesn't block them
       setTimeout(() => {
         const a = document.createElement('a');
-        // Convert section title to safe filename
         const secName = sec.title.replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
+        const ext = dataUrl.startsWith('data:image/png') ? 'png' : 'jpg';
         a.href = dataUrl;
-        a.download = secName + '_Photo_' + (idx + 1) + '_' + dateStr + '.jpg';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }, photoCount * 300);
+        a.download = secName + '_Photo_' + (idx + 1) + '_' + dateStr + '.' + ext;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      }, photoCount * 400);
       photoCount++;
     });
   });
-
   return photoCount;
 }
 
 function exportPDF() {
-  const site        = document.getElementById('site').value        || 'Site not set';
-  const inspDate    = document.getElementById('insp-date').value   || '';
-  const building    = document.getElementById('building').value    || '';
-  const inspectedBy = document.getElementById('inspected-by').value|| '';
-  const dateStr     = inspDate ? inspDate.replace(/-/g, '') : 'nodate';
-  const siteStr     = site.replace(/[^a-zA-Z0-9]/g, '_');
+  const site     = document.getElementById('site').value     || 'Site not set';
+  const inspDate = document.getElementById('insp-date').value || '';
+  const dateStr  = inspDate ? inspDate.replace(/-/g, '') : 'nodate';
+  const siteStr  = site.replace(/[^a-zA-Z0-9]/g, '_');
 
-  const SCORE_LABELS = {'5':'Exceeds Target','4':'Meets Target','3':'Needs Improvement','2':'Target Not Met','1':'Failure','na':'Not Applicable'};
+  function doSave() {
+    const bytes = buildPDFBytes();
+    if (!bytes) { alert('PDF could not be generated. Please try again.'); return; }
+    const blob = new Blob([bytes], { type: 'application/pdf' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = 'BI_Janitorial_Audit_' + siteStr + '_' + dateStr + '.pdf';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 
-  // Compute overall
-  let totalSum = 0, totalCount = 0, naCount = 0, failCount = 0;
-  SECTIONS.forEach(sec => {
-    const v = scores[sec.id];
-    if (!v) return;
-    if (v === 'na') { naCount++; return; }
-    const n = parseInt(v);
-    totalSum += n;
-    totalCount++;
-    if (n <= 2) failCount++;
-  });
-  const overall     = totalCount > 0 ? (totalSum / totalCount).toFixed(2) : '—';
-  const overallBand = overall === '—' ? 'No sections scored' :
-    parseFloat(overall) >= 4.0 ? 'Exceeds Target' :
-    parseFloat(overall) >= 3.0 ? 'Meets Target' :
-    parseFloat(overall) >= 2.5 ? 'Needs Improvement' : 'Below Target';
-
-  // Load jsPDF from CDN then generate
   if (typeof window.jspdf === 'undefined') {
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-    script.onload = () => generateJsPDF();
-    script.onerror = () => alert('Could not load PDF library. Please check your internet connection and try again.');
-    document.head.appendChild(script);
-  } else {
-    generateJsPDF();
-  }
-
-  function generateJsPDF() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const W = 210; // A4 width mm
-    const margin = 14;
-    const contentW = W - margin * 2;
-    let y = margin;
-
-    // ── helpers ──────────────────────────────────────────────────────
-    function checkPage(needed) {
-      if (y + needed > 280) { doc.addPage(); y = margin; }
-    }
-
-    function drawRect(x, iy, w, h, fillColor) {
-      doc.setFillColor(...fillColor);
-      doc.roundedRect(x, iy, w, h, 2, 2, 'F');
-    }
-
-    function text(txt, x, iy, opts = {}) {
-      doc.setFontSize(opts.size || 10);
-      doc.setTextColor(...(opts.color || [44, 44, 42]));
-      doc.setFont('helvetica', opts.bold ? 'bold' : 'normal');
-      const lines = doc.splitTextToSize(String(txt), opts.maxW || contentW);
-      doc.text(lines, x, iy);
-      return lines.length * (opts.lineH || (opts.size || 10) * 0.4);
-    }
-
-    // ── COVER BLOCK ──────────────────────────────────────────────────
-    drawRect(margin, y, contentW, 38, [0, 106, 77]);
-    doc.setFontSize(7); doc.setTextColor(200, 240, 225); doc.setFont('helvetica','normal');
-    doc.text('CBRE · SBM Management Services', margin + 4, y + 6);
-    doc.setFontSize(16); doc.setTextColor(255,255,255); doc.setFont('helvetica','bold');
-    doc.text('BI Janitorial Audit', margin + 4, y + 14);
-    doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(200,240,225);
-    doc.text(site + (building ? ' · ' + building : ''), margin + 4, y + 20);
-
-    // Score badge top right
-    doc.setFontSize(20); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
-    doc.text(overall, W - margin - 4, y + 16, { align: 'right' });
-    doc.setFontSize(8); doc.setFont('helvetica','normal');
-    doc.text(overallBand, W - margin - 4, y + 22, { align: 'right' });
-
-    // Stats row
-    const stats = [
-      { val: String(totalCount), lbl: 'Scored' },
-      { val: String(failCount),  lbl: 'Failed' },
-      { val: String(naCount),    lbl: 'N/A' },
-      { val: inspectedBy || '—', lbl: 'Inspector' },
-      { val: inspDate || '—',    lbl: 'Date' },
-    ];
-    const statW = contentW / stats.length;
-    stats.forEach((s, i) => {
-      doc.setFillColor(255,255,255,0.12);
-      const sx = margin + i * statW + 1;
-      doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
-      doc.text(s.val.length > 12 ? s.val.substring(0,12) : s.val, sx + statW/2 - 1, y + 30, { align: 'center' });
-      doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(200,240,225);
-      doc.text(s.lbl, sx + statW/2 - 1, y + 35, { align: 'center' });
-    });
-    y += 44;
-
-    // ── FAILED ITEMS ─────────────────────────────────────────────────
-    const failedItems = SECTIONS.filter(sec => {
-      const v = scores[sec.id];
-      return v && v !== 'na' && parseInt(v) <= 2;
-    });
-
-    if (failedItems.length > 0) {
-      checkPage(10 + failedItems.length * 10);
-      drawRect(margin, y, contentW, 8, [252, 235, 235]);
-      doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(139,0,0);
-      doc.text('⚠  Items Needing Attention (' + failedItems.length + ')', margin + 3, y + 5.5);
-      y += 10;
-
-      failedItems.forEach(sec => {
-        checkPage(12);
-        const v = scores[sec.id];
-        const note = comments[sec.id] || '';
-        drawRect(margin, y, contentW, note ? 14 : 10, [255, 248, 248]);
-        doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(44,44,42);
-        doc.text(sec.title, margin + 3, y + 6);
-        // Score badge
-        doc.setFillColor(v === '1' ? 139 : 184, v === '1' ? 0 : 64, v === '1' ? 0 : 0);
-        doc.circle(W - margin - 6, y + 5, 4, 'F');
-        doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
-        doc.text(v, W - margin - 6, y + 6.5, { align: 'center' });
-        if (note) {
-          doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(92,92,88);
-          doc.text(note.substring(0, 90), margin + 3, y + 11);
-        }
-        y += note ? 16 : 12;
-      });
-      y += 4;
-    }
-
-    // ── SECTION SCORES ───────────────────────────────────────────────
-    const SCORE_COLORS_RGB = {
-      '5':[0,106,77], '4':[59,122,22], '3':[196,122,0], '2':[184,64,0], '1':[154,24,24], 'na':[158,158,153]
-    };
-    const SCORE_BG_RGB = {
-      '5':[225,245,238], '4':[234,243,222], '3':[255,251,240], '2':[255,244,239], '1':[255,242,242], 'na':[244,244,244]
-    };
-
-    let lastGroup = '';
-    for (let si = 0; si < SECTIONS.length; si++) {
-      const sec = SECTIONS[si];
-      const v = scores[sec.id];
-      const note = comments[sec.id] || '';
-      const secPhotos = (photos[sec.id] || []).filter(Boolean);
-
-      // Group label
-      if (sec.group !== lastGroup) {
-        checkPage(10);
-        doc.setFontSize(7); doc.setFont('helvetica','bold');
-        doc.setTextColor(158,158,153);
-        doc.text(sec.group.toUpperCase(), margin, y + 4);
-        y += 8;
-        lastGroup = sec.group;
-      }
-
-      // Estimate height needed
-      const condLines = sec.conditions.reduce((t, c) => t + doc.splitTextToSize(c, contentW - 10).length, 0);
-      const noteLines = note ? doc.splitTextToSize(note, contentW - 10).length : 0;
-      const photoRows = secPhotos.length > 0 ? Math.ceil(secPhotos.length / 3) : 0;
-      const estH = 12 + (condLines * 4.5) + (note ? 8 + noteLines * 4.5 : 0) + (photoRows > 0 ? 8 + photoRows * 36 : 0) + 6;
-      checkPage(Math.min(estH, 60));
-
-      // Section header bar
-      const scoreColor = v ? SCORE_COLORS_RGB[v] : [158,158,153];
-      const scoreBg    = v ? SCORE_BG_RGB[v]    : [244,244,244];
-      drawRect(margin, y, contentW, 10, [0,106,77]);
-      doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
-      doc.text(sec.num + '. ' + sec.title, margin + 3, y + 7);
-      // Score on right
-      const scoreDisp = v ? (v === 'na' ? 'N/A' : v) : '—';
-      const scoreLbl  = v ? (SCORE_LABELS[v] || '') : 'Not scored';
-      drawRect(W - margin - 28, y + 1.5, 27, 7, scoreBg);
-      doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(...scoreColor);
-      doc.text(scoreDisp + '  ' + scoreLbl, W - margin - 1, y + 7, { align: 'right' });
-      y += 12;
-
-      // Conditions
-      doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(158,158,153);
-      doc.text('GENERAL CONDITIONS', margin, y);
-      y += 4;
-      sec.conditions.forEach(c => {
-        const lines = doc.splitTextToSize('• ' + c, contentW - 4);
-        checkPage(lines.length * 4.5 + 2);
-        doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(92,92,88);
-        doc.text(lines, margin + 2, y);
-        y += lines.length * 4.5;
-      });
-      y += 2;
-
-      // Comments
-      if (note) {
-        checkPage(14);
-        doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(158,158,153);
-        doc.text('COMMENTS', margin, y);
-        y += 4;
-        drawRect(margin, y, contentW, 2, [232,232,229]);
-        const noteLines2 = doc.splitTextToSize(note, contentW - 6);
-        drawRect(margin, y, contentW, noteLines2.length * 4.5 + 5, [249,249,248]);
-        doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(44,44,42);
-        doc.text(noteLines2, margin + 3, y + 4);
-        y += noteLines2.length * 4.5 + 7;
-      }
-
-      // Photos embedded
-      if (secPhotos.length > 0) {
-        checkPage(10);
-        doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(158,158,153);
-        doc.text('PHOTOS (' + secPhotos.length + ')', margin, y);
-        y += 5;
-        const imgW = (contentW - (2 * 3)) / 3; // 3 per row with 3mm gap
-        secPhotos.forEach((src, idx) => {
-          const col = idx % 3;
-          const imgX = margin + col * (imgW + 3);
-          if (col === 0 && idx > 0) { y += imgW * 0.75 + 3; }
-          checkPage(imgW * 0.75 + 4);
-          try {
-            // Detect image format from data URL
-            const fmt = src.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-            doc.addImage(src, fmt, imgX, y, imgW, imgW * 0.75);
-          } catch(e) {
-            // If image fails just note it
-            drawRect(imgX, y, imgW, imgW * 0.75, [240,240,240]);
-            doc.setFontSize(7); doc.setTextColor(158,158,153);
-            doc.text('Photo ' + (idx+1), imgX + imgW/2, y + imgW * 0.375, { align: 'center' });
-          }
-        });
-        // Move past last row of photos
-        const lastRowCount = secPhotos.length % 3 || 3;
-        if (lastRowCount > 0) y += imgW * 0.75 + 5;
-      }
-
-      y += 6; // gap between sections
-    }
-
-    // ── FOOTER ───────────────────────────────────────────────────────
-    const pageCount = doc.getNumberOfPages();
-    for (let p = 1; p <= pageCount; p++) {
-      doc.setPage(p);
-      doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(180,180,180);
-      doc.text('BI Janitorial Audit · CBRE IFM · SBM Management Services · Generated ' + new Date().toLocaleDateString(), margin, 292);
-      doc.text('Page ' + p + ' of ' + pageCount, W - margin, 292, { align: 'right' });
-    }
-
-    // ── SAVE ─────────────────────────────────────────────────────────
-    doc.save('BI_Janitorial_Audit_' + siteStr + '_' + dateStr + '.pdf');
-  }
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    s.onload = doSave;
+    s.onerror = () => alert('Could not load PDF library. Check your internet connection.');
+    document.head.appendChild(s);
+  } else { doSave(); }
 }
 
 
 function exportCSV() {
-  const site        = document.getElementById('site').value        || '';
-  const inspDate    = document.getElementById('insp-date').value   || '';
-  const building    = document.getElementById('building').value    || '';
-  const inspectedBy = document.getElementById('inspected-by').value|| '';
-
-  // Compute overall score
-  let totalSum = 0, totalCount = 0, naCount = 0, failCount = 0;
-  SECTIONS.forEach(sec => {
-    const v = scores[sec.id];
-    if (!v) return;
-    if (v === 'na') { naCount++; return; }
-    const n = parseInt(v);
-    totalSum += n;
-    totalCount++;
-    if (n <= 2) failCount++;
-  });
-
-  const overall     = totalCount > 0 ? (totalSum / totalCount).toFixed(2) : '';
-  const overallBand = overall === '' ? '' :
-    parseFloat(overall) >= 4.0 ? 'Exceeds Target' :
-    parseFloat(overall) >= 3.0 ? 'Meets Target'   :
-    parseFloat(overall) >= 2.5 ? 'Needs Improvement' : 'Below Target';
-
-  const SCORE_LABELS = {
-    '5':'Exceeds Target',
-    '4':'Meets Target',
-    '3':'Needs Improvement',
-    '2':'Target Not Met',
-    '1':'Failure',
-    'na':'Not Applicable'
-  };
-
-  function q(val) {
-    const s = (val === null || val === undefined) ? '' : String(val);
-    return '"' + s.replace(/"/g, '""') + '"';
-  }
-
-  const rows = [];
-
-  // ── HEADER BLOCK (matches original form top) ──────────────────────
-  rows.push([q('Janitorial Audit Form'), q(''), q(''), q(''), q('')].join(','));
-  rows.push([q('Site:'), q(site), q(''), q('Inspection Date:'), q(inspDate)].join(','));
-  rows.push([q('Building:'), q(building), q(''), q('Inspected By:'), q(inspectedBy)].join(','));
-  rows.push([q(''), q(''), q(''), q(''), q('')].join(','));
-
-  // ── COLUMN HEADERS (matches original form columns) ────────────────
-  rows.push([
-    q('Category'),
-    q('General Conditions'),
-    q('Audit Score'),
-    q('Score Label'),
-    q('Comments'),
-    q('Failed / Low Score Flag'),
-    q('Overall Audit Score'),
-    q('Score Band')
-  ].join(','));
-
-  // ── ONE ROW PER SECTION (18 rows) ─────────────────────────────────
-  SECTIONS.forEach(sec => {
-    const v       = scores[sec.id];
-    const score   = v ? (v === 'na' ? 'N/A' : v) : '';
-    const label   = v ? (SCORE_LABELS[v] || '') : '';
-    const note    = comments[sec.id] || '';
-    const failed  = v && v !== 'na' && parseInt(v) <= 2 ? 'YES' : '';
-    const conditions = sec.conditions.join(' | ');
-
-    rows.push([
-      q(sec.title),
-      q(conditions),
-      q(score),
-      q(label),
-      q(note),
-      q(failed),
-      q(overall),
-      q(overallBand)
-    ].join(','));
-  });
-
-  // ── SUMMARY BLOCK (matches original form bottom) ──────────────────
-  rows.push([q(''), q(''), q(''), q(''), q(''), q(''), q(''), q('')].join(','));
-  rows.push([
-    q('Janitorial Audit Score'),
-    q(''),
-    q(overall),
-    q(overallBand),
-    q(''),
-    q(''),
-    q(''),
-    q('')
-  ].join(','));
-  rows.push([q(''), q(''), q(''), q(''), q(''), q(''), q(''), q('')].join(','));
-
-  // ── LEGEND BLOCK ──────────────────────────────────────────────────
-  rows.push([q('Legend'), q(''), q(''), q(''), q(''), q(''), q(''), q('')].join(','));
-  rows.push([q('Exceeds Target'),    q('5'), q(''), q(''), q(''), q(''), q(''), q('')].join(','));
-  rows.push([q('Meets Target'),      q('4'), q(''), q(''), q(''), q(''), q(''), q('')].join(','));
-  rows.push([q('Needs Improvement'), q('3'), q(''), q(''), q(''), q(''), q(''), q('')].join(','));
-  rows.push([q('Target Not Met'),    q('2'), q(''), q(''), q(''), q(''), q(''), q('')].join(','));
-  rows.push([q('Failure'),           q('1'), q(''), q(''), q(''), q(''), q(''), q('')].join(','));
-  rows.push([q('Not Applicable'),    q('N/A'), q(''), q(''), q(''), q(''), q(''), q('')].join(','));
-  rows.push([q(''), q(''), q(''), q(''), q(''), q(''), q(''), q('')].join(','));
-
-  // ── SUMMARY STATS ─────────────────────────────────────────────────
-  rows.push([q('Sections Scored'), q(totalCount), q(''), q(''), q(''), q(''), q(''), q('')].join(','));
-  rows.push([q('N/A Sections'),    q(naCount),    q(''), q(''), q(''), q(''), q(''), q('')].join(','));
-  rows.push([q('Failed Items'),    q(failCount),  q(''), q(''), q(''), q(''), q(''), q('')].join(','));
-
-  // UTF-8 BOM ensures Excel opens with correct encoding
-  const BOM = '\uFEFF';
-  const csvContent = BOM + rows.join('\r\n');
-
+  const site    = document.getElementById('site').value    || '';
+  const inspDate = document.getElementById('insp-date').value || '';
+  const dateStr = inspDate ? inspDate.replace(/-/g, '') : 'nodate';
+  const siteStr = site ? site.replace(/[^a-zA-Z0-9]/g, '_') : 'nosite';
+  const csvContent = buildCSVContent();
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-
-  const dateStr = inspDate ? inspDate.replace(/-/g, '') : 'nodate';
-  const siteStr = site ? site.replace(/[^a-zA-Z0-9]/g, '_') : 'nosite';
-  a.href     = url;
+  a.href = url;
   a.download = 'BI_Janitorial_Audit_' + siteStr + '_' + dateStr + '.csv';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
 
