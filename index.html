@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>BI Janitorial Audit</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -1077,81 +1079,72 @@ function downloadZIP() {
 
   const site        = document.getElementById('site').value        || 'Site not set';
   const inspDate    = document.getElementById('insp-date').value   || '';
-  const building    = document.getElementById('building').value    || '';
-  const inspectedBy = document.getElementById('inspected-by').value|| '';
   const dateStr     = inspDate ? inspDate.replace(/-/g, '') : 'nodate';
   const siteStr     = site.replace(/[^a-zA-Z0-9]/g, '_');
 
-  function doZip() {
-    const JSZip = window.JSZip;
-    const zip   = new JSZip();
+  // Small timeout to let browser render the "Building ZIP..." state first
+  setTimeout(() => {
+    try {
+      if (typeof window.JSZip === 'undefined') {
+        alert('ZIP library not loaded. Please check your internet connection and reload the page.');
+        if (btn) { btn.textContent = '📦 Download All Files (ZIP)'; btn.disabled = false; }
+        return;
+      }
 
-    // ── CSV ──────────────────────────────────────────────────────────
-    const csvContent = buildCSVContent();
-    zip.file('BI_Janitorial_Audit_' + siteStr + '_' + dateStr + '.csv', csvContent);
+      const zip = new window.JSZip();
 
-    // ── PHOTOS ───────────────────────────────────────────────────────
-    const photoFolder = zip.folder('Photos');
-    SECTIONS.forEach(sec => {
-      const secPhotos = (photos[sec.id] || []).filter(Boolean);
-      secPhotos.forEach((dataUrl, idx) => {
-        const secName = sec.title.replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
-        const base64  = dataUrl.split(',')[1];
-        const ext     = dataUrl.startsWith('data:image/png') ? 'png' : 'jpg';
-        photoFolder.file(secName + '_Photo_' + (idx + 1) + '_' + dateStr + '.' + ext, base64, { base64: true });
+      // ── CSV ────────────────────────────────────────────────────────
+      const csvContent = buildCSVContent();
+      zip.file('BI_Janitorial_Audit_' + siteStr + '_' + dateStr + '.csv', csvContent);
+
+      // ── PHOTOS ─────────────────────────────────────────────────────
+      const photoFolder = zip.folder('Photos');
+      let photoAdded = false;
+      SECTIONS.forEach(sec => {
+        const secPhotos = (photos[sec.id] || []).filter(Boolean);
+        secPhotos.forEach((dataUrl, idx) => {
+          const secName = sec.title.replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
+          const base64  = dataUrl.split(',')[1];
+          const ext     = dataUrl.startsWith('data:image/png') ? 'png' : 'jpg';
+          photoFolder.file(secName + '_Photo_' + (idx + 1) + '_' + dateStr + '.' + ext, base64, { base64: true });
+          photoAdded = true;
+        });
       });
-    });
+      if (!photoAdded) zip.remove('Photos');
 
-    // ── PDF via jsPDF ────────────────────────────────────────────────
-    const pdfBytes = buildPDFBytes();
-    if (pdfBytes) {
-      zip.file('BI_Janitorial_Audit_' + siteStr + '_' + dateStr + '.pdf', pdfBytes);
+      // ── PDF ────────────────────────────────────────────────────────
+      const pdfBytes = buildPDFBytes();
+      if (pdfBytes) {
+        zip.file('BI_Janitorial_Audit_' + siteStr + '_' + dateStr + '.pdf', pdfBytes);
+      }
+
+      // ── GENERATE & DOWNLOAD ────────────────────────────────────────
+      zip.generateAsync({ type: 'blob' }).then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a   = document.createElement('a');
+        a.href     = url;
+        a.download = 'BI_Janitorial_Audit_' + siteStr + '_' + dateStr + '.zip';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        const dlArea   = document.getElementById('zip-download-area');
+        const doneArea = document.getElementById('zip-done-area');
+        if (dlArea)   dlArea.style.display   = 'none';
+        if (doneArea) doneArea.style.display = 'block';
+      }).catch(err => {
+        console.error('ZIP generation failed:', err);
+        alert('ZIP generation failed: ' + err.message);
+        if (btn) { btn.textContent = '📦 Download All Files (ZIP)'; btn.disabled = false; }
+      });
+
+    } catch(err) {
+      console.error('Download error:', err);
+      alert('Download failed: ' + err.message);
+      if (btn) { btn.textContent = '📦 Download All Files (ZIP)'; btn.disabled = false; }
     }
-
-    // ── GENERATE & DOWNLOAD ──────────────────────────────────────────
-    zip.generateAsync({ type: 'blob' }).then(blob => {
-      const url = URL.createObjectURL(blob);
-      const a   = document.createElement('a');
-      a.href     = url;
-      a.download = 'BI_Janitorial_Audit_' + siteStr + '_' + dateStr + '.zip';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      // Show done state
-      const dlArea   = document.getElementById('zip-download-area');
-      const doneArea = document.getElementById('zip-done-area');
-      if (dlArea)   dlArea.style.display   = 'none';
-      if (doneArea) doneArea.style.display = 'block';
-    });
-  }
-
-  // Load JSZip if not already loaded
-  if (typeof window.JSZip === 'undefined') {
-    const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-    s.onload = () => {
-      // Also load jsPDF if needed
-      if (typeof window.jspdf === 'undefined') {
-        const s2 = document.createElement('script');
-        s2.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-        s2.onload = doZip;
-        s2.onerror = () => { if (btn) { btn.textContent = 'PDF unavailable — download CSV + Photos only'; btn.disabled = false; } doZip(); };
-        document.head.appendChild(s2);
-      } else { doZip(); }
-    };
-    s.onerror = () => alert('Could not load ZIP library. Check your internet connection and try again.');
-    document.head.appendChild(s);
-  } else if (typeof window.jspdf === 'undefined') {
-    const s2 = document.createElement('script');
-    s2.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-    s2.onload = doZip;
-    s2.onerror = doZip;
-    document.head.appendChild(s2);
-  } else {
-    doZip();
-  }
+  }, 100);
 }
 
 function buildCSVContent() {
@@ -1421,24 +1414,19 @@ function exportPDF() {
   const dateStr  = inspDate ? inspDate.replace(/-/g, '') : 'nodate';
   const siteStr  = site.replace(/[^a-zA-Z0-9]/g, '_');
 
-  function doSave() {
-    const bytes = buildPDFBytes();
-    if (!bytes) { alert('PDF could not be generated. Please try again.'); return; }
-    const blob = new Blob([bytes], { type: 'application/pdf' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url; a.download = 'BI_Janitorial_Audit_' + siteStr + '_' + dateStr + '.pdf';
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
   if (typeof window.jspdf === 'undefined') {
-    const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-    s.onload = doSave;
-    s.onerror = () => alert('Could not load PDF library. Check your internet connection.');
-    document.head.appendChild(s);
-  } else { doSave(); }
+    alert('PDF library not loaded. Please check your internet connection and reload the page.');
+    return;
+  }
+  const bytes = buildPDFBytes();
+  if (!bytes) { alert('PDF could not be generated. Please try again.'); return; }
+  const blob = new Blob([bytes], { type: 'application/pdf' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = 'BI_Janitorial_Audit_' + siteStr + '_' + dateStr + '.pdf';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 
