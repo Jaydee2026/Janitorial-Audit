@@ -397,9 +397,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 
     <div style="background:var(--green-light);border-radius:var(--radius-md);padding:14px;margin-bottom:10px;border:1px solid var(--green-mid)">
       <div style="font-size:10px;font-weight:600;color:#005C43;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Submit Audit</div>
-      <div style="font-size:12px;color:#005C43;line-height:1.6;margin-bottom:10px;">Tapping Submit will download your PDF, CSV, and all photos. Then Outlook will open with the subject line pre-filled — attach your files and tap Send.</div>
+      <div style="font-size:12px;color:#005C43;line-height:1.6;margin-bottom:10px;">Downloads your PDF, CSV, and photos. Then email all files to yourself — Power Automate saves each one directly to your SharePoint site folder.</div>
       <button class="btn-submit" onclick="submitAudit()" style="background:var(--green);margin-bottom:0;">
-        Submit Audit &amp; Prepare Email
+        Submit Audit &amp; Download Files
       </button>
     </div>
 
@@ -1002,58 +1002,58 @@ function submitAudit() {
   const building    = document.getElementById('building').value    || '';
   const inspectedBy = document.getElementById('inspected-by').value|| '';
   const siteShort   = site.split(',')[0].trim();
-  const dateStr     = inspDate ? inspDate.replace(/-/g, '') : 'nodate';
-  const siteStr     = site.replace(/[^a-zA-Z0-9]/g, '_');
+  const dateStr     = inspDate ? inspDate.replace(/-/g,'') : 'nodate';
+  const siteStr     = site.replace(/[^a-zA-Z0-9]/g,'_');
 
-  const photoCount = SECTIONS.reduce((total, sec) => {
-    return total + (photos[sec.id] ? photos[sec.id].filter(Boolean).length : 0);
-  }, 0);
+  const photoCount = SECTIONS.reduce((t,sec) => t + (photos[sec.id]||[]).filter(Boolean).length, 0);
+  const subjectLine = 'Janitorial Audit - ' + siteShort;
 
   closeModal();
 
-  // Show submit modal with single ZIP download button
+  // Build file list
+  const fileList = [
+    { id:'f-pdf',  icon:'📄', label:'PDF Report',          hint:'Full audit with scores, comments & photos', fn:'dlPDF' },
+    { id:'f-csv',  icon:'📊', label:'CSV Data',            hint:'For Smartsheet / Power BI',                 fn:'dlCSV' },
+  ];
+  if (photoCount > 0) {
+    fileList.push({ id:'f-photos', icon:'📷', label:photoCount + ' Photo' + (photoCount>1?'s':''), hint:'One JPG per section', fn:'dlPhotos' });
+  }
+
+  const fileRows = fileList.map(f => `
+    <div id="${f.id}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--white);border:1.5px solid var(--gray-200);border-radius:var(--radius-sm);margin-bottom:6px;">
+      <div style="font-size:20px;flex-shrink:0;">${f.icon}</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:600;color:var(--gray-800);">${f.label}</div>
+        <div style="font-size:11px;color:var(--gray-400);">${f.hint}</div>
+      </div>
+      <button id="btn-${f.id}" onclick="${f.fn}('${f.id}')" style="height:34px;padding:0 14px;background:var(--green);color:#fff;border:none;border-radius:var(--radius-sm);font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent;">Save</button>
+    </div>
+  `).join('');
+
   const modalContent = `
     <div style="padding:20px;">
       <div style="width:36px;height:4px;background:var(--gray-200);border-radius:2px;margin:0 auto 16px;"></div>
       <div style="font-size:18px;font-weight:700;color:var(--gray-800);margin-bottom:4px;">Submit Audit</div>
-      <div style="font-size:12px;color:var(--gray-400);margin-bottom:16px;">${site} · ${inspDate} · ${inspectedBy}</div>
+      <div style="font-size:12px;color:var(--gray-400);margin-bottom:16px;">${site}${building?' · '+building:''} · ${inspDate}</div>
 
-      <div style="background:var(--green-light);border-radius:var(--radius-md);padding:12px;margin-bottom:14px;border:1px solid var(--green-mid);">
-        <div style="font-size:12px;color:#005C43;line-height:1.7;">
-          One tap downloads a single ZIP file containing:<br>
-          <strong>• PDF report</strong> with all scores and comments<br>
-          <strong>• CSV data</strong> for Smartsheet / Power BI<br>
-          ${photoCount > 0 ? '<strong>• ' + photoCount + ' photo(s)</strong> as individual JPG files<br>' : ''}
+      <div style="font-size:11px;font-weight:600;color:var(--gray-600);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Step 1 — Save each file</div>
+      ${fileRows}
+
+      <div style="margin-top:12px;padding:12px;background:var(--gray-50);border-radius:var(--radius-md);margin-bottom:8px;">
+        <div style="font-size:11px;font-weight:600;color:var(--gray-600);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Step 2 — Email to SharePoint</div>
+        <div style="font-size:12px;color:var(--gray-600);line-height:1.7;margin-bottom:10px;">
+          Open Outlook, compose a new email <strong>to yourself</strong>, attach all saved files, and use this subject line:
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;background:var(--white);border:1.5px solid var(--green-mid);border-radius:var(--radius-sm);padding:9px 12px;margin-bottom:10px;">
+          <div style="flex:1;font-size:13px;font-weight:600;color:var(--green);" id="subject-line-display">${subjectLine}</div>
+          <button onclick="copySubject('${subjectLine}')" style="height:30px;padding:0 12px;background:var(--green);color:#fff;border:none;border-radius:var(--radius-sm);font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;">Copy</button>
+        </div>
+        <div style="font-size:11px;color:var(--gray-400);line-height:1.6;">
+          Power Automate will automatically save each file to your <strong>${siteShort}</strong> SharePoint folder. Files open directly — no ZIP needed.
         </div>
       </div>
 
-      <div id="zip-download-area">
-        <button id="btn-download-zip" onclick="downloadZIP();" style="width:100%;height:52px;background:var(--green);color:#fff;border:none;border-radius:var(--radius-md);font-size:15px;font-weight:600;cursor:pointer;margin-bottom:12px;-webkit-tap-highlight-color:transparent;">
-          📦 Download All Files (ZIP)
-        </button>
-      </div>
-
-      <div id="zip-done-area" style="display:none;">
-        <div style="background:var(--green-light);border:1px solid var(--green-mid);border-radius:var(--radius-md);padding:12px;margin-bottom:12px;">
-          <div style="font-size:13px;font-weight:600;color:var(--green);margin-bottom:8px;">✓ ZIP downloaded to your Downloads folder</div>
-          <div style="font-size:11px;color:#005C43;line-height:1.7;">
-            <strong>To send to SharePoint:</strong><br>
-            1. Open <strong>Outlook</strong> on your phone<br>
-            2. Compose a new email to yourself<br>
-            3. Tap the subject field and type or paste:<br>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px;background:#fff;border:1.5px solid var(--green-mid);border-radius:var(--radius-sm);padding:8px 10px;margin:8px 0;">
-            <div style="flex:1;font-size:13px;font-weight:600;color:var(--green);" id="subject-line-display">Janitorial Audit - ${siteShort}</div>
-            <button onclick="copySubject('Janitorial Audit - ${siteShort}');" style="height:30px;padding:0 10px;background:var(--green);color:#fff;border:none;border-radius:var(--radius-sm);font-size:12px;font-weight:600;cursor:pointer;">Copy</button>
-          </div>
-          <div style="font-size:11px;color:#005C43;line-height:1.7;">
-            4. Attach the ZIP file from your Downloads folder<br>
-            5. Tap <strong>Send</strong>
-          </div>
-        </div>
-      </div>
-
-      <button onclick="closeSubmitModal();" style="width:100%;height:44px;background:transparent;color:var(--gray-400);border:1.5px solid var(--gray-200);border-radius:var(--radius-md);font-size:13px;cursor:pointer;">Done</button>
+      <button onclick="closeSubmitModal()" style="width:100%;height:44px;background:transparent;color:var(--gray-400);border:1.5px solid var(--gray-200);border-radius:var(--radius-md);font-size:13px;cursor:pointer;margin-top:4px;">Done</button>
     </div>
   `;
 
@@ -1062,89 +1062,73 @@ function submitAudit() {
     overlay = document.createElement('div');
     overlay.id = 'submit-modal-overlay';
     overlay.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.50);z-index:300;align-items:flex-end;justify-content:center;';
-    const modal = document.createElement('div');
-    modal.id = 'submit-modal-inner';
-    modal.style.cssText = 'background:var(--white);border-radius:14px 14px 0 0;width:100%;max-width:680px;max-height:90vh;overflow-y:auto;-webkit-overflow-scrolling:touch;';
-    overlay.appendChild(modal);
+    const inner = document.createElement('div');
+    inner.id = 'submit-modal-inner';
+    inner.style.cssText = 'background:var(--white);border-radius:14px 14px 0 0;width:100%;max-width:680px;max-height:90vh;overflow-y:auto;-webkit-overflow-scrolling:touch;';
+    overlay.appendChild(inner);
     document.body.appendChild(overlay);
-    overlay.addEventListener('click', function(e) { if (e.target === this) closeSubmitModal(); });
+    overlay.addEventListener('click', function(e){ if(e.target===this) closeSubmitModal(); });
   }
   document.getElementById('submit-modal-inner').innerHTML = modalContent;
   overlay.style.display = 'flex';
 }
 
-function downloadZIP() {
-  const btn = document.getElementById('btn-download-zip');
-  if (btn) { btn.textContent = '⏳ Building ZIP...'; btn.disabled = true; }
+function markFileDone(rowId) {
+  const row = document.getElementById(rowId);
+  const btn = document.getElementById('btn-' + rowId);
+  if (row) { row.style.borderColor='var(--green-mid)'; row.style.background='var(--green-light)'; }
+  if (btn) { btn.textContent='✓ Saved'; btn.style.background='#3B7A16'; btn.disabled=true; }
+}
 
-  const site        = document.getElementById('site').value        || 'Site not set';
-  const inspDate    = document.getElementById('insp-date').value   || '';
-  const dateStr     = inspDate ? inspDate.replace(/-/g, '') : 'nodate';
-  const siteStr     = site.replace(/[^a-zA-Z0-9]/g, '_');
+function dlPDF(rowId) {
+  const site     = document.getElementById('site').value     || 'Site not set';
+  const inspDate = document.getElementById('insp-date').value || '';
+  const dateStr  = inspDate ? inspDate.replace(/-/g,'') : 'nodate';
+  const siteStr  = site.replace(/[^a-zA-Z0-9]/g,'_');
+  if (typeof window.jspdf === 'undefined') { alert('PDF library not loaded. Please reload the page.'); return; }
+  const bytes = buildPDFBytes();
+  if (!bytes) { alert('PDF could not be generated. Please try again.'); return; }
+  const blob = new Blob([bytes], {type:'application/pdf'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href=url; a.download='BI_Janitorial_Audit_'+siteStr+'_'+dateStr+'.pdf';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  markFileDone(rowId);
+}
 
-  // Small timeout to let browser render the "Building ZIP..." state first
-  setTimeout(() => {
-    try {
-      if (typeof window.JSZip === 'undefined') {
-        alert('ZIP library not loaded. Please check your internet connection and reload the page.');
-        if (btn) { btn.textContent = '📦 Download All Files (ZIP)'; btn.disabled = false; }
-        return;
-      }
+function dlCSV(rowId) {
+  const site     = document.getElementById('site').value     || '';
+  const inspDate = document.getElementById('insp-date').value || '';
+  const dateStr  = inspDate ? inspDate.replace(/-/g,'') : 'nodate';
+  const siteStr  = site ? site.replace(/[^a-zA-Z0-9]/g,'_') : 'nosite';
+  const content  = buildCSVContent();
+  const blob = new Blob([content], {type:'text/csv;charset=utf-8;'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href=url; a.download='BI_Janitorial_Audit_'+siteStr+'_'+dateStr+'.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  markFileDone(rowId);
+}
 
-      const zip = new window.JSZip();
-
-      // ── CSV ────────────────────────────────────────────────────────
-      const csvContent = buildCSVContent();
-      zip.file('BI_Janitorial_Audit_' + siteStr + '_' + dateStr + '.csv', csvContent);
-
-      // ── PHOTOS ─────────────────────────────────────────────────────
-      const photoFolder = zip.folder('Photos');
-      let photoAdded = false;
-      SECTIONS.forEach(sec => {
-        const secPhotos = (photos[sec.id] || []).filter(Boolean);
-        secPhotos.forEach((dataUrl, idx) => {
-          const secName = sec.title.replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
-          const base64  = dataUrl.split(',')[1];
-          const ext     = dataUrl.startsWith('data:image/png') ? 'png' : 'jpg';
-          photoFolder.file(secName + '_Photo_' + (idx + 1) + '_' + dateStr + '.' + ext, base64, { base64: true });
-          photoAdded = true;
-        });
-      });
-      if (!photoAdded) zip.remove('Photos');
-
-      // ── PDF ────────────────────────────────────────────────────────
-      const pdfBytes = buildPDFBytes();
-      if (pdfBytes) {
-        zip.file('BI_Janitorial_Audit_' + siteStr + '_' + dateStr + '.pdf', pdfBytes);
-      }
-
-      // ── GENERATE & DOWNLOAD ────────────────────────────────────────
-      zip.generateAsync({ type: 'blob' }).then(blob => {
-        const url = URL.createObjectURL(blob);
-        const a   = document.createElement('a');
-        a.href     = url;
-        a.download = 'BI_Janitorial_Audit_' + siteStr + '_' + dateStr + '.zip';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-
-        const dlArea   = document.getElementById('zip-download-area');
-        const doneArea = document.getElementById('zip-done-area');
-        if (dlArea)   dlArea.style.display   = 'none';
-        if (doneArea) doneArea.style.display = 'block';
-      }).catch(err => {
-        console.error('ZIP generation failed:', err);
-        alert('ZIP generation failed: ' + err.message);
-        if (btn) { btn.textContent = '📦 Download All Files (ZIP)'; btn.disabled = false; }
-      });
-
-    } catch(err) {
-      console.error('Download error:', err);
-      alert('Download failed: ' + err.message);
-      if (btn) { btn.textContent = '📦 Download All Files (ZIP)'; btn.disabled = false; }
-    }
-  }, 100);
+function dlPhotos(rowId) {
+  const inspDate = document.getElementById('insp-date').value || '';
+  const dateStr  = inspDate ? inspDate.replace(/-/g,'') : 'nodate';
+  let count = 0;
+  SECTIONS.forEach(sec => {
+    (photos[sec.id]||[]).filter(Boolean).forEach((dataUrl, idx) => {
+      setTimeout(() => {
+        const secName = sec.title.replace(/[^a-zA-Z0-9]/g,'_').replace(/_+/g,'_');
+        const ext = dataUrl.startsWith('data:image/png') ? 'png' : 'jpg';
+        const a = document.createElement('a');
+        a.href=dataUrl; a.download=secName+'_Photo_'+(idx+1)+'_'+dateStr+'.'+ext;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      }, count * 500);
+      count++;
+    });
+  });
+  setTimeout(() => markFileDone(rowId), count * 500 + 100);
 }
 
 function buildCSVContent() {
@@ -1387,63 +1371,10 @@ function copySubject(text) {
 
 
 
-function exportPhotos() {
-  const inspDate = document.getElementById('insp-date').value || '';
-  const dateStr  = inspDate ? inspDate.replace(/-/g, '') : 'nodate';
-  let photoCount = 0;
-  SECTIONS.forEach(sec => {
-    const secPhotos = (photos[sec.id] || []).filter(Boolean);
-    secPhotos.forEach((dataUrl, idx) => {
-      setTimeout(() => {
-        const a = document.createElement('a');
-        const secName = sec.title.replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
-        const ext = dataUrl.startsWith('data:image/png') ? 'png' : 'jpg';
-        a.href = dataUrl;
-        a.download = secName + '_Photo_' + (idx + 1) + '_' + dateStr + '.' + ext;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      }, photoCount * 400);
-      photoCount++;
-    });
-  });
-  return photoCount;
-}
+function exportPhotos() { dlPhotos('f-photos'); }
+function exportPDF()    { dlPDF('f-pdf'); }
+function exportCSV()    { dlCSV('f-csv'); }
 
-function exportPDF() {
-  const site     = document.getElementById('site').value     || 'Site not set';
-  const inspDate = document.getElementById('insp-date').value || '';
-  const dateStr  = inspDate ? inspDate.replace(/-/g, '') : 'nodate';
-  const siteStr  = site.replace(/[^a-zA-Z0-9]/g, '_');
-
-  if (typeof window.jspdf === 'undefined') {
-    alert('PDF library not loaded. Please check your internet connection and reload the page.');
-    return;
-  }
-  const bytes = buildPDFBytes();
-  if (!bytes) { alert('PDF could not be generated. Please try again.'); return; }
-  const blob = new Blob([bytes], { type: 'application/pdf' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url;
-  a.download = 'BI_Janitorial_Audit_' + siteStr + '_' + dateStr + '.pdf';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-
-function exportCSV() {
-  const site    = document.getElementById('site').value    || '';
-  const inspDate = document.getElementById('insp-date').value || '';
-  const dateStr = inspDate ? inspDate.replace(/-/g, '') : 'nodate';
-  const siteStr = site ? site.replace(/[^a-zA-Z0-9]/g, '_') : 'nosite';
-  const csvContent = buildCSVContent();
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url;
-  a.download = 'BI_Janitorial_Audit_' + siteStr + '_' + dateStr + '.csv';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
 
 function closeModal() {
   document.getElementById('results-modal').classList.remove('open');
