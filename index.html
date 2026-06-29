@@ -1,0 +1,1401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>BI Janitorial Audit</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --green:#006A4D;--green-dark:#004F3A;--green-light:#E1F5EE;--green-mid:#9FE1CB;
+  --amber:#C47A00;--amber-light:#FEF3DC;
+  --red:#B83200;--red-light:#FDECE6;--red-deep:#8B0000;--red-deep-light:#FCEBEB;
+  --gray-50:#F7F7F6;--gray-100:#EEEEEC;--gray-200:#D8D8D5;--gray-400:#9E9E99;
+  --gray-600:#5C5C58;--gray-800:#2C2C2A;--white:#FFFFFF;
+  --radius-sm:6px;--radius-md:10px;--radius-lg:14px;
+}
+html{font-size:16px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--gray-50);color:var(--gray-800);min-height:100vh;padding-bottom:130px}
+
+/* HEADER */
+.app-header{background:var(--green);padding:14px 18px 12px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.18)}
+.app-header-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px}
+.app-logo{display:flex;align-items:center;gap:8px}
+.app-logo-mark{width:32px;height:32px;background:rgba(255,255,255,0.15);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0}
+.app-logo-title{font-size:14px;font-weight:600;color:#fff;line-height:1.2}
+.app-logo-sub{font-size:11px;color:rgba(255,255,255,0.70);line-height:1.2}
+.progress-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.progress-label{font-size:11px;color:rgba(255,255,255,0.75)}
+.progress-pct{font-size:11px;font-weight:600;color:#fff}
+.progress-track{height:4px;background:rgba(255,255,255,0.2);border-radius:2px;overflow:hidden}
+.progress-fill{height:100%;background:rgba(255,255,255,0.85);border-radius:2px;transition:width 0.3s ease;width:0%}
+
+/* SCORE FOOTER */
+.score-footer{position:fixed;bottom:0;left:0;right:0;background:var(--green);padding:10px 16px 14px;box-shadow:0 -2px 12px rgba(0,0,0,0.15);z-index:100;transition:background 0.4s ease}
+.score-footer.band-yellow{background:#9A5E00}
+.score-footer.band-red{background:#8B2000}
+.score-footer-main{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.score-total-label{font-size:10px;color:rgba(255,255,255,0.70)}
+.score-total-val{font-size:28px;font-weight:600;color:#fff;line-height:1}
+.score-band-pill{font-size:11px;font-weight:500;padding:3px 10px;border-radius:20px;background:rgba(255,255,255,0.18);color:#fff;margin-left:8px}
+.score-stats{display:flex;gap:6px}
+.score-stat{flex:1;background:rgba(255,255,255,0.12);border-radius:var(--radius-sm);padding:5px 4px;text-align:center}
+.score-stat-val{font-size:13px;font-weight:600;color:#fff}
+.score-stat-lbl{font-size:9px;color:rgba(255,255,255,0.65);line-height:1.2;margin-top:1px}
+
+/* MAIN */
+.main{max-width:680px;margin:0 auto;padding:14px 12px 0}
+
+/* CARDS */
+.card{background:var(--white);border-radius:var(--radius-lg);border:1px solid var(--gray-100);overflow:hidden;margin-bottom:10px}
+.card-header{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--gray-100);background:var(--gray-50)}
+.card-header-icon{width:30px;height:30px;border-radius:var(--radius-sm);background:var(--green-light);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.card-header-text{flex:1}
+.card-header-title{font-size:13px;font-weight:600;color:var(--gray-800);line-height:1.2}
+.card-header-sub{font-size:11px;color:var(--gray-400);line-height:1.2;margin-top:1px}
+.card-body{padding:14px}
+
+/* FORM FIELDS */
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.field label{display:block;font-size:11px;font-weight:600;color:var(--gray-600);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em}
+.field input,.field select{width:100%;height:40px;padding:0 12px;border:1.5px solid var(--gray-200);border-radius:var(--radius-sm);font-size:14px;color:var(--gray-800);background:var(--white);outline:none;transition:border-color 0.15s;-webkit-appearance:none}
+.field input:focus,.field select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(0,106,77,0.10)}
+
+/* AUDIT SECTION CARD */
+.audit-card{background:var(--white);border-radius:var(--radius-lg);border:1px solid var(--gray-100);overflow:hidden;margin-bottom:10px}
+
+.audit-card-header{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--gray-50);border-bottom:1px solid var(--gray-100)}
+.audit-icon{width:32px;height:32px;border-radius:var(--radius-sm);background:var(--green-light);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.audit-title-wrap{flex:1}
+.audit-title{font-size:14px;font-weight:600;color:var(--gray-800);line-height:1.2}
+.audit-num{font-size:10px;color:var(--gray-400);margin-top:1px}
+.audit-section-score{font-size:20px;font-weight:700;color:var(--gray-400);min-width:36px;text-align:right;line-height:1}
+.audit-section-score.s-green{color:var(--green)}
+.audit-section-score.s-amber{color:var(--amber)}
+.audit-section-score.s-red{color:var(--red-deep)}
+
+.audit-card-body{padding:14px}
+
+/* CONDITIONS LIST */
+.conditions-label{font-size:10px;font-weight:600;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px}
+.conditions-list{list-style:none;padding:0;margin:0 0 14px}
+.conditions-list li{font-size:12px;color:var(--gray-600);line-height:1.5;padding:4px 0 4px 14px;position:relative;border-bottom:1px solid var(--gray-100)}
+.conditions-list li:last-child{border-bottom:none}
+.conditions-list li::before{content:'•';position:absolute;left:0;color:var(--green-mid);font-size:14px;line-height:1.4}
+
+/* SCORE BUTTONS */
+.score-section-label{font-size:10px;font-weight:600;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px}
+.score-buttons{display:flex;gap:5px;margin-bottom:14px}
+.score-btn{flex:1;height:44px;border-radius:var(--radius-sm);border:1.5px solid var(--gray-200);background:var(--white);font-size:13px;font-weight:600;color:var(--gray-400);cursor:pointer;transition:all 0.12s ease;display:flex;flex-direction:column;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;padding:0;gap:2px}
+.score-btn span.score-num{font-size:14px;font-weight:700;line-height:1}
+.score-btn span.score-lbl{font-size:8px;line-height:1;color:inherit;opacity:0.75}
+.score-btn:active{transform:scale(0.95)}
+
+.score-btn[data-score="5"]{color:#0A5E44;border-color:#9FE1CB;background:#F0FBF7}
+.score-btn[data-score="4"]{color:#2D6010;border-color:#B8D88A;background:#F2FAE8}
+.score-btn[data-score="3"]{color:#7A4B00;border-color:#F5C96A;background:#FFFBF0}
+.score-btn[data-score="2"]{color:#8B3000;border-color:#F5B898;background:#FFF4EF}
+.score-btn[data-score="1"]{color:#7A1818;border-color:#F0A0A0;background:#FFF2F2}
+.score-btn[data-score="na"]{color:var(--gray-400);border-color:var(--gray-200);background:var(--gray-50)}
+.score-btn[data-score="na"] span.score-lbl{font-size:9px}
+
+.score-btn.selected[data-score="5"]{background:#006A4D;border-color:#006A4D;color:#fff}
+.score-btn.selected[data-score="4"]{background:#3B7A16;border-color:#3B7A16;color:#fff}
+.score-btn.selected[data-score="3"]{background:#C47A00;border-color:#C47A00;color:#fff}
+.score-btn.selected[data-score="2"]{background:#B84000;border-color:#B84000;color:#fff}
+.score-btn.selected[data-score="1"]{background:#9A1818;border-color:#9A1818;color:#fff}
+.score-btn.selected[data-score="na"]{background:var(--gray-600);border-color:var(--gray-600);color:#fff}
+.score-btn.selected span.score-lbl{opacity:0.85}
+
+/* COMMENTS */
+.field-label{font-size:10px;font-weight:600;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px}
+.comment-textarea{width:100%;min-height:64px;padding:9px 11px;border:1.5px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;color:var(--gray-800);background:var(--white);resize:vertical;outline:none;font-family:inherit;line-height:1.5;transition:border-color 0.15s}
+.comment-textarea:focus{border-color:var(--green)}
+.comment-textarea.warn{border-color:#F5B898;background:#FFF9F7}
+
+/* PHOTO UPLOAD */
+.photo-section{margin-top:12px}
+.photo-upload-btn{display:flex;align-items:center;gap:8px;width:100%;height:40px;border:1.5px dashed var(--gray-200);border-radius:var(--radius-sm);background:var(--gray-50);color:var(--gray-400);font-size:12px;font-weight:500;cursor:pointer;padding:0 12px;transition:all 0.15s;-webkit-tap-highlight-color:transparent}
+.photo-upload-btn:active{background:var(--gray-100)}
+.photo-upload-btn svg{width:16px;height:16px;flex-shrink:0}
+.photo-input{display:none}
+.photo-previews{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.photo-thumb{position:relative;width:72px;height:72px;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--gray-200)}
+.photo-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.photo-remove{position:absolute;top:3px;right:3px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.55);border:none;color:#fff;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0}
+
+/* FAILED SUMMARY */
+.failed-summary{display:none;margin-bottom:10px}
+.failed-summary.visible{display:block}
+.failed-header{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;background:var(--gray-50);border-bottom:1px solid var(--gray-100)}
+.failed-header-left{display:flex;align-items:center;gap:8px}
+.failed-icon{width:28px;height:28px;border-radius:var(--radius-sm);background:var(--red-deep-light);display:flex;align-items:center;justify-content:center;font-size:14px}
+.failed-title{font-size:13px;font-weight:600;color:var(--gray-800)}
+.failed-count-pill{font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;background:var(--red-deep-light);color:var(--red-deep)}
+.failed-item-row{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-bottom:1px solid var(--gray-100)}
+.failed-item-row:last-child{border-bottom:none}
+.failed-dot{width:8px;height:8px;border-radius:50%;margin-top:4px;flex-shrink:0}
+.dot-1{background:var(--red-deep)}.dot-2{background:var(--red)}.dot-3{background:var(--amber)}
+.failed-item-body{flex:1}
+.failed-item-section{font-size:10px;font-weight:600;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px}
+.failed-item-note{font-size:11px;color:var(--gray-600);margin-top:2px;font-style:italic}
+.failed-item-score{font-size:12px;font-weight:700;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.fscore-1{background:var(--red-deep-light);color:var(--red-deep)}
+.fscore-2{background:var(--red-light);color:var(--red)}
+.fscore-3{background:var(--amber-light);color:var(--amber)}
+
+/* SECTION GROUP LABEL */
+.group-label{font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.08em;padding:16px 2px 6px}
+
+/* QUICK NAV */
+.quick-nav{display:flex;overflow-x:auto;gap:6px;padding:9px 12px;background:var(--white);border-bottom:1px solid var(--gray-100);-webkit-overflow-scrolling:touch;scrollbar-width:none;position:sticky;top:0;z-index:90}
+.quick-nav::-webkit-scrollbar{display:none}
+.nav-pill{flex-shrink:0;padding:5px 10px;border-radius:20px;font-size:11px;font-weight:500;border:1.5px solid var(--gray-200);color:var(--gray-600);background:var(--white);white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:all 0.12s}
+.nav-pill.done{background:var(--green-light);color:#005C43;border-color:var(--green-mid)}
+.nav-pill.has-fail{background:var(--red-deep-light);color:var(--red-deep);border-color:#F0A0A0}
+
+/* SUBMIT */
+.submit-area{padding:4px 0 8px;display:flex;flex-direction:column;gap:8px}
+.btn-submit{width:100%;height:48px;background:var(--green);color:#fff;border:none;border-radius:var(--radius-md);font-size:15px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.btn-submit:active{background:var(--green-dark)}
+.btn-export{width:100%;height:44px;background:var(--white);color:var(--green);border:1.5px solid var(--green);border-radius:var(--radius-md);font-size:14px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;justify-content:center;gap:7px}
+.btn-export:active{background:var(--green-light)}
+.btn-export-modal{margin-top:8px}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.50);z-index:200;align-items:flex-end;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--white);border-radius:var(--radius-lg) var(--radius-lg) 0 0;width:100%;max-width:680px;max-height:90vh;overflow-y:auto;padding:20px;-webkit-overflow-scrolling:touch}
+.modal-handle{width:36px;height:4px;background:var(--gray-200);border-radius:2px;margin:0 auto 16px}
+.modal-title{font-size:18px;font-weight:700;color:var(--gray-800);margin-bottom:4px}
+.modal-sub{font-size:12px;color:var(--gray-400);margin-bottom:16px}
+.modal-score-block{border-radius:var(--radius-md);padding:16px;margin-bottom:16px;text-align:center}
+.modal-score-block.green{background:var(--green-light)}
+.modal-score-block.yellow{background:var(--amber-light)}
+.modal-score-block.red{background:var(--red-light)}
+.modal-score-num{font-size:52px;font-weight:700;line-height:1}
+.modal-score-block.green .modal-score-num{color:var(--green)}
+.modal-score-block.yellow .modal-score-num{color:var(--amber)}
+.modal-score-block.red .modal-score-num{color:var(--red)}
+.modal-score-band{font-size:13px;font-weight:600;margin-top:4px}
+.modal-score-block.green .modal-score-band{color:#005C43}
+.modal-score-block.yellow .modal-score-band{color:var(--amber)}
+.modal-score-block.red .modal-score-band{color:var(--red)}
+.modal-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+.modal-stat{background:var(--gray-50);border-radius:var(--radius-md);padding:10px 8px;text-align:center}
+.modal-stat-val{font-size:20px;font-weight:700;color:var(--gray-800)}
+.modal-stat-lbl{font-size:10px;color:var(--gray-400);margin-top:2px;line-height:1.3}
+.modal-section-title{font-size:13px;font-weight:600;color:var(--gray-800);margin-bottom:8px}
+.modal-section-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--gray-100)}
+.modal-section-row:last-child{border-bottom:none}
+.modal-section-name{font-size:12px;color:var(--gray-600);flex:1}
+.modal-section-val{font-size:13px;font-weight:600;min-width:40px;text-align:right}
+.msv-green{color:var(--green)}.msv-amber{color:var(--amber)}.msv-red{color:var(--red)}.msv-na{color:var(--gray-400);font-size:11px}
+.btn-close-modal{width:100%;height:44px;background:var(--green);color:#fff;border:none;border-radius:var(--radius-md);font-size:14px;font-weight:600;cursor:pointer;margin-top:4px}
+.btn-reset{width:100%;height:40px;background:transparent;color:var(--gray-400);border:1.5px solid var(--gray-200);border-radius:var(--radius-md);font-size:13px;cursor:pointer;margin-top:8px}
+
+@media(max-width:400px){
+  .score-btn{height:40px}
+  .score-btn span.score-lbl{display:none}
+}
+
+/* ── PRINT / PDF STYLES ─────────────────────────────────────────── */
+@media print {
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+  body { background: #fff !important; padding: 0 !important; font-family: Arial, sans-serif; }
+
+  .app-header, .quick-nav, .score-footer, .submit-area,
+  .score-buttons, .score-section-label, .photo-section,
+  .field input, .field select, .comment-textarea,
+  .field label, .field-label, .btn-submit, .btn-export,
+  .btn-reset, .btn-close-modal, .modal-overlay { display: none !important; }
+
+  .main { max-width: 100% !important; padding: 0 !important; }
+
+  /* Cover page */
+  .pdf-cover { display: block !important; }
+
+  /* Section cards */
+  .audit-card { border: 1px solid #ccc !important; border-radius: 6px !important;
+    margin-bottom: 14px !important; page-break-inside: avoid; box-shadow: none !important; }
+  .audit-card-header { background: #006A4D !important; padding: 10px 14px !important; }
+  .audit-title { color: #fff !important; font-size: 13px !important; }
+  .audit-num { color: rgba(255,255,255,0.75) !important; }
+  .audit-icon { background: rgba(255,255,255,0.2) !important; }
+  .audit-section-score { color: #fff !important; }
+
+  .conditions-list li { font-size: 11px !important; }
+
+  /* Printed score display */
+  .pdf-score-display { display: flex !important; }
+
+  /* Comments */
+  .pdf-comment { display: block !important; }
+
+  /* Photos */
+  .pdf-photos { display: flex !important; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .pdf-photo-img { width: 120px; height: 120px; object-fit: cover;
+    border-radius: 4px; border: 1px solid #ccc; }
+
+  /* Failed summary */
+  .failed-summary { display: block !important; }
+  .failed-summary.visible { display: block !important; }
+
+  /* Setup card */
+  .card { border: 1px solid #ccc !important; box-shadow: none !important; }
+
+  /* Group labels */
+  .group-label { color: #333 !important; padding-top: 10px !important; }
+
+  /* Score legend — hide in PDF, wastes space */
+  .card:last-of-type { display: none !important; }
+
+  /* Page breaks */
+  .group-label { page-break-before: auto; }
+}
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="app-header-top">
+    <div class="app-logo">
+      <div class="app-logo-mark">BI</div>
+      <div>
+        <div class="app-logo-title">Janitorial Audit</div>
+        <div class="app-logo-sub">CBRE · SBM Management Services</div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <div class="progress-row">
+      <span class="progress-label" id="progress-label">0 of 18 sections scored</span>
+      <span class="progress-pct" id="progress-pct">0%</span>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+  </div>
+</header>
+
+<nav class="quick-nav" id="quick-nav"></nav>
+
+<main class="main">
+
+  <!-- SETUP -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-header-icon">📋</div>
+      <div class="card-header-text">
+        <div class="card-header-title">Audit Information</div>
+        <div class="card-header-sub">Complete before starting walkthrough</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="field-grid">
+        <div class="field">
+          <label for="site">Site</label>
+          <select id="site">
+            <option value="">Select site…</option>
+            <option>Athens, GA</option>
+            <option>Burlington, ON</option>
+            <option>Colbert, GA</option>
+            <option>Columbus, OH</option>
+            <option>Fremont, CA</option>
+            <option>Ridgefield, CT</option>
+            <option selected>St. Joseph, MO</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="insp-date">Inspection Date</label>
+          <input type="date" id="insp-date">
+        </div>
+        <div class="field">
+          <label for="building">Building / Zone</label>
+          <input type="text" id="building" placeholder="e.g. Building A">
+        </div>
+        <div class="field">
+          <label for="inspected-by">Inspected By</label>
+          <input type="text" id="inspected-by" placeholder="Your name">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAILED ITEMS -->
+  <div class="audit-card failed-summary" id="failed-summary">
+    <div class="failed-header">
+      <div class="failed-header-left">
+        <div class="failed-icon">⚠️</div>
+        <div class="failed-title">Items Needing Attention</div>
+      </div>
+      <div class="failed-count-pill" id="failed-count-pill">0</div>
+    </div>
+    <div id="failed-list"></div>
+  </div>
+
+  <!-- AUDIT SECTIONS -->
+  <div id="audit-sections"></div>
+
+  <!-- LEGEND -->
+  <div class="card" style="margin-bottom:10px">
+    <div class="card-body" style="padding:12px 14px">
+      <div class="conditions-label" style="margin-bottom:8px">Score Legend</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+        <div style="text-align:center;padding:6px 4px;background:#F0FBF7;border-radius:var(--radius-sm);border:1px solid #9FE1CB">
+          <div style="font-size:15px;font-weight:700;color:#006A4D">5</div>
+          <div style="font-size:9px;color:#0A5E44;line-height:1.3">Exceeds Target</div>
+        </div>
+        <div style="text-align:center;padding:6px 4px;background:#F2FAE8;border-radius:var(--radius-sm);border:1px solid #B8D88A">
+          <div style="font-size:15px;font-weight:700;color:#3B7A16">4</div>
+          <div style="font-size:9px;color:#2D6010;line-height:1.3">Meets Target</div>
+        </div>
+        <div style="text-align:center;padding:6px 4px;background:#FFFBF0;border-radius:var(--radius-sm);border:1px solid #F5C96A">
+          <div style="font-size:15px;font-weight:700;color:#C47A00">3</div>
+          <div style="font-size:9px;color:#7A4B00;line-height:1.3">Needs Improvement</div>
+        </div>
+        <div style="text-align:center;padding:6px 4px;background:#FFF4EF;border-radius:var(--radius-sm);border:1px solid #F5B898">
+          <div style="font-size:15px;font-weight:700;color:#B84000">2</div>
+          <div style="font-size:9px;color:#8B3000;line-height:1.3">Target Not Met</div>
+        </div>
+        <div style="text-align:center;padding:6px 4px;background:#FFF2F2;border-radius:var(--radius-sm);border:1px solid #F0A0A0">
+          <div style="font-size:15px;font-weight:700;color:#9A1818">1</div>
+          <div style="font-size:9px;color:#7A1818;line-height:1.3">Failure</div>
+        </div>
+        <div style="text-align:center;padding:6px 4px;background:var(--gray-50);border-radius:var(--radius-sm);border:1px solid var(--gray-200)">
+          <div style="font-size:12px;font-weight:700;color:var(--gray-600)">N/A</div>
+          <div style="font-size:9px;color:var(--gray-400);line-height:1.3">Not Applicable</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="submit-area">
+    <button class="btn-submit" onclick="showResults()">View Audit Results & Submit</button>
+  </div>
+
+</main>
+
+<!-- RESULTS MODAL -->
+<div class="modal-overlay" id="results-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Audit Complete</div>
+    <div class="modal-sub" id="modal-sub"></div>
+    <div class="modal-score-block green" id="modal-score-block">
+      <div class="modal-score-num" id="modal-score-num">—</div>
+      <div class="modal-score-band" id="modal-score-band">—</div>
+    </div>
+    <div class="modal-stats">
+      <div class="modal-stat"><div class="modal-stat-val" id="ms-scored">—</div><div class="modal-stat-lbl">Sections scored</div></div>
+      <div class="modal-stat"><div class="modal-stat-val" id="ms-failed">—</div><div class="modal-stat-lbl">Failed items</div></div>
+      <div class="modal-stat"><div class="modal-stat-val" id="ms-na">—</div><div class="modal-stat-lbl">N/A sections</div></div>
+    </div>
+    <div class="modal-section-title">Section Scores</div>
+    <div id="modal-section-rows" style="margin-bottom:16px"></div>
+
+    <div style="background:var(--green-light);border-radius:var(--radius-md);padding:14px;margin-bottom:10px;border:1px solid var(--green-mid)">
+      <div style="font-size:10px;font-weight:600;color:#005C43;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Submit Audit</div>
+      <div style="font-size:12px;color:#005C43;line-height:1.6;margin-bottom:10px;">Saves your PDF, CSV, and photos individually. Then attach them in Outlook and send — Power Automate routes each file to your SharePoint site folder.</div>
+      <button class="btn-submit" onclick="submitAudit()" style="background:var(--green);margin-bottom:0;">
+        Submit Audit &amp; Save Files
+      </button>
+    </div>
+
+    <button class="btn-close-modal" onclick="closeModal()">Close</button>
+    <button class="btn-reset" onclick="resetAudit()">Start New Audit</button>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer class="score-footer" id="score-footer">
+  <div class="score-footer-main">
+    <div>
+      <div class="score-total-label">Overall audit score</div>
+      <div style="display:flex;align-items:baseline;gap:6px">
+        <div class="score-total-val" id="footer-score">—</div>
+        <div class="score-band-pill" id="footer-band">Not started</div>
+      </div>
+    </div>
+  </div>
+  <div class="score-stats">
+    <div class="score-stat"><div class="score-stat-val" id="stat-sections">0/18</div><div class="score-stat-lbl">Sections done</div></div>
+    <div class="score-stat"><div class="score-stat-val" id="stat-failed">0</div><div class="score-stat-lbl">Failed items</div></div>
+    <div class="score-stat"><div class="score-stat-val" id="stat-na">0</div><div class="score-stat-lbl">N/A used</div></div>
+    <div class="score-stat" style="cursor:pointer" onclick="showResults()">
+      <div class="score-stat-val" style="font-size:18px">📊</div>
+      <div class="score-stat-lbl">Results</div>
+    </div>
+  </div>
+</footer>
+
+<script>
+const SECTIONS = [
+  {
+    id:"trash", icon:"🗑️", num:"01", title:"Trash",
+    group:"Core Daily Use",
+    conditions:[
+      "All trash and recycle receptacles are clean, free of odors, and not overflowing",
+      "Trash receptacles are of a consistent design and standard throughout all areas",
+      "Recycling containers are properly serviced"
+    ]
+  },
+  {
+    id:"dusting", icon:"🧹", num:"02", title:"Dusting / Wiping / Clearing",
+    group:"Core Daily Use",
+    conditions:[
+      "All exposed horizontal and vertical surfaces at all heights (silk plants, furniture, picture frames, artwork, handrails, restroom fixtures, door frames, window sills, display cases, lighting fixtures, file cabinets, walls, etc.) are free of dust, dirt, marks, and stains",
+      "HVAC vents are free of dust, dirt, and marks",
+      "Common and conference/breakout area telephones, handrails, door handles, and push bars are disinfected a minimum of once a week or as instructed",
+      "All cafeteria trays and dishes found throughout the facility have been returned to the café"
+    ]
+  },
+  {
+    id:"fountains", icon:"💧", num:"03", title:"Drinking Fountains",
+    group:"Core Daily Use",
+    conditions:[
+      "All drinking fountains are substantially free of calcium build-up, debris in drains, stains, dust, and odors",
+      "Drinking fountains have an appropriate level of sheen per design standard"
+    ]
+  },
+  {
+    id:"hard-floors", icon:"🪵", num:"04", title:"Hard Floors",
+    group:"Floors & Surfaces",
+    conditions:[
+      "All hard floors and baseboards are substantially free of visible dirt, dust, debris, stains, traffic/scuff marks, aging marks, and wax buildup",
+      "All floor surfaces have a finish appropriate to the floor type",
+      "Appropriate techniques and standards are utilized to achieve appearance, aesthetics, a clean/healthy environment, and to maintain the life of the product",
+      "All hard floors and baseboards that are broken, cracked, or defective in any way are reported that day"
+    ]
+  },
+  {
+    id:"carpet", icon:"🟫", num:"05", title:"Carpet / Mats / Rugs",
+    group:"Floors & Surfaces",
+    conditions:[
+      "All accessible carpets, mats, and rugs are substantially free of debris, stains, odors, and visible dirt",
+      "No visible tears, shredded seams, or damaged/stained carpet — all defects are reported that day",
+      "All flooring is secured properly; all cove base is installed and free of defects",
+      "Appropriate techniques, equipment, and standards are utilized to achieve appearance and maintain the life of the product",
+      "A proactive and reactive process is in place to completely manage all spills"
+    ]
+  },
+  {
+    id:"conference", icon:"🪑", num:"06", title:"Conference Rooms",
+    group:"Workspaces",
+    conditions:[
+      "Chairs and tables are arranged and coordinated per room spec with the appropriate number of chairs",
+      "Chairs and other furniture and accessories are kept clean and free of foreign materials, stains, dust, and marks",
+      "Conference room supplies are checked and replaced (markers, flip charts, pins, erasers)",
+      "All whiteboards are monitored and maintained for cleanliness and functionality; 'Do Not Erase' / 'SAVE' signs are respected",
+      "No miscellaneous debris remaining; cafeteria trays and dishes transported to café",
+      "No damaged cabinet doors, tables, chairs, or sound partitions/panels; light sensors are in working order"
+    ]
+  },
+  {
+    id:"elevators", icon:"🔲", num:"07", title:"Elevators",
+    group:"High-Visibility",
+    conditions:[
+      "All elevator (passenger and freight) door tracks are free of dirt, soil, lint, dust, and debris",
+      "Passenger elevator doors, walls, and floors are substantially free of dirt, stains, streaks, spots, lint, and cleaning marks"
+    ]
+  },
+  {
+    id:"locker", icon:"🚿", num:"08", title:"Locker Rooms",
+    group:"Core Daily Use",
+    conditions:[
+      "Lockers and benches are clean and sanitized",
+      "Showers, curtains, floors, drains, sinks, urinals, and toilets are substantially free of any residue build-up (calcium, mildew), smudges, odors, and dust",
+      "Mirrors, partitions, toilets, and fixtures are free of any residue build-up, smudges, odors, and dust",
+      "All dispensers are stocked and deodorizer is full and working",
+      "Any personal property found has been returned to Security"
+    ]
+  },
+  {
+    id:"vending", icon:"🥤", num:"09", title:"Vending Areas",
+    group:"Workspaces",
+    conditions:[
+      "Sinks, vending machines, refrigerators, and microwaves are clean and free of odors",
+      "All handles and buttons on equipment are disinfected",
+      "All refrigerators are cleaned and emptied per site-specific directions; cleaning schedules are clearly posted",
+      "Wall cabinets (internal and external) are free of miscellaneous items; any broken or non-operational microwave ovens are reported the same day"
+    ]
+  },
+  {
+    id:"quiet", icon:"☕", num:"10", title:"Quiet Rooms / Kitchenettes",
+    group:"Workspaces",
+    conditions:[
+      "All equipment including refrigerators and microwaves is sanitized",
+      "All horizontal and vertical surfaces are sanitized",
+      "Magazines and other accessories are neatly arranged to represent a professional appearance"
+    ]
+  },
+  {
+    id:"knowledge", icon:"📚", num:"11", title:"Knowledge Center / Fellows Areas / Library",
+    group:"Workspaces",
+    conditions:[
+      "Work spaces have not been disturbed — no materials moved or discarded",
+      "All recycling containers are serviced and materials staged for recycling have been transported to external containers for off-site collection",
+      "Furniture is neatly arranged and cleaned; upholstery is deep cleaned to ensure this standard is met",
+      "All monitors, screens, keyboard surfaces, and mice are kept clean"
+    ]
+  },
+  {
+    id:"closets", icon:"🔒", num:"12", title:"Custodial Closets",
+    group:"Back-of-House",
+    conditions:[
+      "J-Closets and storage spaces are kept neat and clean at all times and in compliance with applicable fire codes and regulations",
+      "Mops, buckets, wet floor signs, tools, equipment, and all other materials are cleaned and stored properly in janitor closets",
+      "Chemicals are properly labeled; flammable materials are stored in appropriate containers; blend centers are maintained"
+    ]
+  },
+  {
+    id:"restrooms", icon:"🚻", num:"13", title:"Restrooms",
+    group:"Core Daily Use",
+    conditions:[
+      "Sinks, mirrors, partitions, urinals, toilets, drains, fixtures, and all horizontal and vertical surfaces are substantially free of any residue build-up (calcium, mildew), smudges, odors, and dust",
+      "All dispensers are stocked, operational, and available in working condition",
+      "All vents and exhausts are free of dust and in working order; air fresheners are working",
+      "There are no offensive odors, no overflows, and no backflows",
+      "All non-working utilities have been reported immediately",
+      "Trash cans are clean, consistent model, and meet the trash standard"
+    ]
+  },
+  {
+    id:"lobby", icon:"🏛️", num:"14", title:"Lobby",
+    group:"High-Visibility",
+    conditions:[
+      "Lobbies are spotlessly clean — no visible dust, cobwebs, spills, trash, stains, or defects on the floor",
+      "All glass surfaces (windows, doors, panels) are free of marks, stains, scratches, and any other defects",
+      "All installations and displays are spotless and defect-free",
+      "All furniture is maintained to its original condition, dust-free, and in its original arrangement",
+      "All equipment is uniform; all glass windows and doors are maintained in pristine condition"
+    ]
+  },
+  {
+    id:"amenities", icon:"🎭", num:"15", title:"Amenities / Auditorium",
+    group:"High-Visibility",
+    conditions:[
+      "All floor mats are substantially free of dirt, stains, and debris and are trip/slip free",
+      "All mirrors, glass partitions, doors, and shelves are free of streaks, smudges, spots, and dust"
+    ]
+  },
+  {
+    id:"compliance", icon:"✅", num:"16", title:"Space Audit Compliance",
+    group:"Back-of-House",
+    conditions:[
+      "Site janitorial audit plan is followed as developed to ensure 100% of the applicable property is audited over the course of each quarter",
+      "Any deviations from the audit plan are documented with a comment and client agreement"
+    ]
+  },
+  {
+    id:"cafeteria", icon:"🍽️", num:"17", title:"Dining Area – Cafeteria",
+    group:"Food Service",
+    conditions:[
+      "All chairs and tables are wiped, cleaned, and disinfected after service",
+      "Tables and chairs are reset after cleaning of floors",
+      "Interior and exterior mats in the dining areas are vacuumed, swept, and washed as necessary to remove all soil",
+      "Surfaces beneath all mats are clean and free of debris",
+      "Service Provider is staffed appropriately to ensure standards are met at non-peak times"
+    ]
+  },
+  {
+    id:"pantry", icon:"🧃", num:"18", title:"Dining Area – Pantry Areas",
+    group:"Food Service",
+    conditions:[
+      "Continuous spill cleanup and stain/soil removal is emphasized for this area as per scheduled visits",
+      "All chairs and tables are wiped, cleaned, disinfected, and reset",
+      "All vending machines, microwaves, and refrigerators are substantially free of dirt, dust, debris, and odors",
+      "Service Provider is staffed appropriately to ensure standards are met at both peak and non-peak times"
+    ]
+  }
+];
+
+const scores = {};
+const comments = {};
+const photos = {};
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('insp-date').valueAsDate = new Date();
+  buildNav();
+  buildSections();
+  updateAll();
+});
+
+function buildNav() {
+  const nav = document.getElementById('quick-nav');
+  SECTIONS.forEach(s => {
+    const p = document.createElement('div');
+    p.className = 'nav-pill';
+    p.id = 'nav-' + s.id;
+    p.textContent = s.num + ' ' + s.title;
+    p.onclick = () => document.getElementById('card-' + s.id).scrollIntoView({behavior:'smooth',block:'start'});
+    nav.appendChild(p);
+  });
+}
+
+function buildSections() {
+  const container = document.getElementById('audit-sections');
+  let lastGroup = null;
+
+  SECTIONS.forEach(sec => {
+    if (sec.group !== lastGroup) {
+      const lbl = document.createElement('div');
+      lbl.className = 'group-label';
+      lbl.textContent = sec.group;
+      container.appendChild(lbl);
+      lastGroup = sec.group;
+    }
+
+    const card = document.createElement('div');
+    card.className = 'audit-card';
+    card.id = 'card-' + sec.id;
+
+    // Header
+    const hdr = document.createElement('div');
+    hdr.className = 'audit-card-header';
+    hdr.id = 'hdr-' + sec.id;
+    hdr.innerHTML = `
+      <div class="audit-icon">${sec.icon}</div>
+      <div class="audit-title-wrap">
+        <div class="audit-title">${sec.title}</div>
+        <div class="audit-num">Section ${sec.num} of 18</div>
+      </div>
+      <div class="audit-section-score" id="sec-score-${sec.id}">—</div>
+    `;
+    card.appendChild(hdr);
+
+    // Body
+    const body = document.createElement('div');
+    body.className = 'audit-card-body';
+
+    // Conditions
+    const condLabel = document.createElement('div');
+    condLabel.className = 'conditions-label';
+    condLabel.textContent = 'General Conditions';
+    body.appendChild(condLabel);
+
+    const ul = document.createElement('ul');
+    ul.className = 'conditions-list';
+    sec.conditions.forEach(c => {
+      const li = document.createElement('li');
+      li.textContent = c;
+      ul.appendChild(li);
+    });
+    body.appendChild(ul);
+
+    // Score label
+    const scoreLabel = document.createElement('div');
+    scoreLabel.className = 'score-section-label';
+    scoreLabel.textContent = 'Section Score';
+    body.appendChild(scoreLabel);
+
+    // Score buttons
+    const btnRow = document.createElement('div');
+    btnRow.className = 'score-buttons';
+    btnRow.id = 'btns-' + sec.id;
+
+    const scoreOpts = [
+      {v:'5', lbl:'Exceeds'},
+      {v:'4', lbl:'Meets'},
+      {v:'3', lbl:'Needs work'},
+      {v:'2', lbl:'Not met'},
+      {v:'1', lbl:'Failure'},
+      {v:'na', lbl:'N/A'}
+    ];
+    scoreOpts.forEach(opt => {
+      const btn = document.createElement('button');
+      btn.className = 'score-btn';
+      btn.dataset.score = opt.v;
+      btn.dataset.id = sec.id;
+      btn.innerHTML = `<span class="score-num">${opt.v === 'na' ? 'N/A' : opt.v}</span><span class="score-lbl">${opt.lbl}</span>`;
+      btn.onclick = () => setScore(sec.id, opt.v);
+      btnRow.appendChild(btn);
+    });
+    body.appendChild(btnRow);
+
+    // Comments
+    const commLabel = document.createElement('div');
+    commLabel.className = 'field-label';
+    commLabel.style.marginBottom = '6px';
+    commLabel.textContent = 'Comments';
+    body.appendChild(commLabel);
+
+    const reqNote = document.createElement('div');
+    reqNote.id = 'req-note-' + sec.id;
+    reqNote.style.cssText = 'display:none;font-size:10px;color:var(--red);font-weight:500;margin-bottom:4px';
+    reqNote.textContent = 'Note required for this score';
+    body.appendChild(reqNote);
+
+    const ta = document.createElement('textarea');
+    ta.className = 'comment-textarea';
+    ta.id = 'comment-' + sec.id;
+    ta.placeholder = 'Add observations, deficiencies, or corrective actions needed…';
+    ta.oninput = () => { comments[sec.id] = ta.value; };
+    body.appendChild(ta);
+
+    // Photo upload
+    const photoSection = document.createElement('div');
+    photoSection.className = 'photo-section';
+
+    const photoLabel = document.createElement('div');
+    photoLabel.className = 'field-label';
+    photoLabel.style.cssText = 'margin-top:12px;margin-bottom:6px';
+    photoLabel.textContent = 'Photos';
+    photoSection.appendChild(photoLabel);
+
+    const uploadBtn = document.createElement('label');
+    uploadBtn.className = 'photo-upload-btn';
+    uploadBtn.htmlFor = 'photo-input-' + sec.id;
+    uploadBtn.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+        <polyline points="21 15 16 10 5 21"/>
+      </svg>
+      Attach photo
+    `;
+    photoSection.appendChild(uploadBtn);
+
+    const photoInput = document.createElement('input');
+    photoInput.type = 'file';
+    photoInput.accept = 'image/*';
+    photoInput.multiple = true;
+    photoInput.capture = 'environment';
+    photoInput.className = 'photo-input';
+    photoInput.id = 'photo-input-' + sec.id;
+    photoInput.onchange = (e) => handlePhotos(sec.id, e.target.files);
+    photoSection.appendChild(photoInput);
+
+    const previews = document.createElement('div');
+    previews.className = 'photo-previews';
+    previews.id = 'previews-' + sec.id;
+    photoSection.appendChild(previews);
+
+    body.appendChild(photoSection);
+    card.appendChild(body);
+    container.appendChild(card);
+  });
+}
+
+function setScore(id, val) {
+  scores[id] = val;
+
+  // Update buttons
+  document.querySelectorAll(`#btns-${id} .score-btn`).forEach(b => {
+    b.classList.toggle('selected', b.dataset.score === String(val));
+  });
+
+  // Header score display
+  const scoreEl = document.getElementById('sec-score-' + id);
+  const ta = document.getElementById('comment-' + id);
+  const reqNote = document.getElementById('req-note-' + id);
+
+  if (val === 'na') {
+    scoreEl.textContent = 'N/A';
+    scoreEl.className = 'audit-section-score';
+    reqNote.style.display = 'none';
+    ta.classList.remove('warn');
+  } else {
+    const n = parseInt(val);
+    scoreEl.textContent = val;
+    if (n >= 3) {
+      scoreEl.className = 'audit-section-score s-green';
+    } else if (n === 2) {
+      scoreEl.className = 'audit-section-score s-amber';
+    } else {
+      scoreEl.className = 'audit-section-score s-red';
+    }
+    if (n <= 2) {
+      reqNote.style.display = 'block';
+      ta.classList.add('warn');
+      ta.focus();
+    } else {
+      reqNote.style.display = 'none';
+      ta.classList.remove('warn');
+    }
+  }
+
+  updateAll();
+}
+
+function handlePhotos(id, files) {
+  if (!photos[id]) photos[id] = [];
+  const previews = document.getElementById('previews-' + id);
+
+  Array.from(files).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const idx = photos[id].length;
+      photos[id].push(e.target.result);
+
+      const thumb = document.createElement('div');
+      thumb.className = 'photo-thumb';
+      thumb.id = `thumb-${id}-${idx}`;
+      thumb.innerHTML = `
+        <img src="${e.target.result}" alt="Photo ${idx + 1}">
+        <button class="photo-remove" onclick="removePhoto('${id}', ${idx})" aria-label="Remove photo">×</button>
+      `;
+      previews.appendChild(thumb);
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // Reset input so same file can be re-added
+  document.getElementById('photo-input-' + id).value = '';
+}
+
+function removePhoto(id, idx) {
+  if (photos[id]) photos[id][idx] = null;
+  const thumb = document.getElementById(`thumb-${id}-${idx}`);
+  if (thumb) thumb.remove();
+}
+
+function updateAll() {
+  let totalSum = 0, totalCount = 0, naCount = 0, failCount = 0, doneCount = 0;
+  const failedItems = [];
+
+  SECTIONS.forEach(sec => {
+    const v = scores[sec.id];
+    const scoreEl = document.getElementById('sec-score-' + sec.id);
+    const pill = document.getElementById('nav-' + sec.id);
+
+    if (v === undefined) {
+      pill.className = 'nav-pill';
+      return;
+    }
+
+    doneCount++;
+
+    if (v === 'na') {
+      naCount++;
+      pill.className = 'nav-pill done';
+      scoreEl.textContent = 'N/A';
+      scoreEl.className = 'audit-section-score';
+      return;
+    }
+
+    const n = parseInt(v);
+    totalSum += n;
+    totalCount++;
+
+    if (n <= 2) {
+      failCount++;
+      pill.className = 'nav-pill has-fail';
+      failedItems.push({ section: sec.title, score: n, comment: comments[sec.id] || '' });
+    } else {
+      pill.className = 'nav-pill done';
+    }
+  });
+
+  // Overall score
+  const overall = totalCount > 0 ? totalSum / totalCount : null;
+  const display = overall !== null ? overall.toFixed(2) : '—';
+
+  let band = 'Not started', bandClass = '';
+  if (overall !== null) {
+    if (overall >= 4.0) { band = 'Exceeds Target'; }
+    else if (overall >= 3.0) { band = 'Meets Target'; }
+    else if (overall >= 2.5) { band = 'Needs Improvement'; bandClass = 'band-yellow'; }
+    else { band = 'Below Target'; bandClass = 'band-red'; }
+  }
+
+  document.getElementById('footer-score').textContent = display;
+  document.getElementById('footer-band').textContent = band;
+  document.getElementById('stat-sections').textContent = doneCount + '/18';
+  document.getElementById('stat-failed').textContent = failCount;
+  document.getElementById('stat-na').textContent = naCount;
+  document.getElementById('score-footer').className = 'score-footer ' + bandClass;
+
+  // Progress
+  const pct = Math.round((doneCount / 18) * 100);
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-pct').textContent = pct + '%';
+  document.getElementById('progress-label').textContent = doneCount + ' of 18 sections scored';
+
+  // Failed summary
+  const summaryEl = document.getElementById('failed-summary');
+  const listEl = document.getElementById('failed-list');
+
+  if (failedItems.length > 0) {
+    summaryEl.classList.add('visible');
+    document.getElementById('failed-count-pill').textContent = failedItems.length + (failedItems.length === 1 ? ' item' : ' items');
+    listEl.innerHTML = failedItems.map(f => `
+      <div class="failed-item-row">
+        <div class="failed-dot ${f.score === 1 ? 'dot-1' : 'dot-2'}"></div>
+        <div class="failed-item-body">
+          <div class="failed-item-section">${f.section}</div>
+          ${f.comment ? `<div class="failed-item-note">${f.comment}</div>` : '<div class="failed-item-note" style="color:var(--gray-200)">No note added</div>'}
+        </div>
+        <div class="failed-item-score fscore-${f.score}">${f.score}</div>
+      </div>
+    `).join('');
+  } else {
+    summaryEl.classList.remove('visible');
+  }
+}
+
+function showResults() {
+  const site = document.getElementById('site').value || 'Site not set';
+  const date = document.getElementById('insp-date').value || '';
+  const by = document.getElementById('inspected-by').value || '';
+  document.getElementById('modal-sub').textContent = [site, date, by].filter(Boolean).join(' · ');
+
+  let totalSum = 0, totalCount = 0, naCount = 0, failCount = 0;
+  const rows = [];
+
+  SECTIONS.forEach(sec => {
+    const v = scores[sec.id];
+    if (v === 'na') naCount++;
+    else if (v && parseInt(v) <= 2) failCount++;
+    if (v && v !== 'na') { totalSum += parseInt(v); totalCount++; }
+
+    let cls = 'msv-na', disp = 'N/A';
+    if (v && v !== 'na') {
+      const n = parseInt(v);
+      disp = n.toFixed(1);
+      cls = n >= 3 ? 'msv-green' : n === 2 ? 'msv-amber' : 'msv-red';
+    }
+    rows.push(`<div class="modal-section-row"><div class="modal-section-name">${sec.num}. ${sec.title}</div><div class="modal-section-val ${cls}">${disp}</div></div>`);
+  });
+
+  const overall = totalCount > 0 ? totalSum / totalCount : null;
+  const disp = overall !== null ? overall.toFixed(2) : '—';
+  let band = 'No sections scored', blockClass = 'green';
+  if (overall !== null) {
+    if (overall >= 4.0) { band = 'Exceeds Target'; blockClass = 'green'; }
+    else if (overall >= 3.0) { band = 'Meets Target'; blockClass = 'green'; }
+    else if (overall >= 2.5) { band = 'Needs Improvement'; blockClass = 'yellow'; }
+    else { band = 'Below Target — Corrective Action Required'; blockClass = 'red'; }
+  }
+
+  document.getElementById('modal-score-num').textContent = disp;
+  document.getElementById('modal-score-band').textContent = band;
+  document.getElementById('modal-score-block').className = 'modal-score-block ' + blockClass;
+  document.getElementById('ms-scored').textContent = totalCount;
+  document.getElementById('ms-failed').textContent = failCount;
+  document.getElementById('ms-na').textContent = naCount;
+  document.getElementById('modal-section-rows').innerHTML = rows.join('');
+  document.getElementById('results-modal').classList.add('open');
+}
+
+function submitAudit() {
+  const site        = document.getElementById('site').value        || 'Site not set';
+  const inspDate    = document.getElementById('insp-date').value   || '';
+  const building    = document.getElementById('building').value    || '';
+  const inspectedBy = document.getElementById('inspected-by').value|| '';
+  const siteShort   = site.split(',')[0].trim();
+  const dateStr     = inspDate ? inspDate.replace(/-/g,'') : 'nodate';
+  const siteStr     = site.replace(/[^a-zA-Z0-9]/g,'_');
+  const subjectLine = 'Janitorial Audit - ' + siteShort;
+
+  const photoCount = SECTIONS.reduce((t,sec) => t + (photos[sec.id]||[]).filter(Boolean).length, 0);
+
+  closeModal();
+
+  const modalContent = `
+    <div style="padding:20px;">
+      <div style="width:36px;height:4px;background:var(--gray-200);border-radius:2px;margin:0 auto 16px;"></div>
+      <div style="font-size:18px;font-weight:700;color:var(--gray-800);margin-bottom:4px;">Submit Audit</div>
+      <div style="font-size:12px;color:var(--gray-400);margin-bottom:16px;">${site}${building?' · '+building:''} · ${inspDate}</div>
+
+      <div style="background:var(--green-light);border:1px solid var(--green-mid);border-radius:var(--radius-md);padding:12px;margin-bottom:14px;">
+        <div style="font-size:12px;color:#005C43;line-height:1.7;">
+          Tap <strong>Save All Files</strong> to download:<br>
+          📄 PDF report &nbsp;·&nbsp; 📊 CSV data${photoCount > 0 ? ' &nbsp;·&nbsp; 📷 ' + photoCount + ' photo' + (photoCount>1?'s':'') : ''}<br>
+          Then open Outlook, attach all files, and send.
+        </div>
+      </div>
+
+      <div id="save-btn-area">
+        <button id="btn-save-all" onclick="saveAllFiles('${siteStr}','${dateStr}')" style="width:100%;height:52px;background:var(--green);color:#fff;border:none;border-radius:var(--radius-md);font-size:15px;font-weight:600;cursor:pointer;margin-bottom:8px;-webkit-tap-highlight-color:transparent;">
+          💾 Save All Files
+        </button>
+      </div>
+
+      <div id="save-done-area" style="display:none;margin-bottom:12px;">
+        <div style="background:var(--green-light);border:1px solid var(--green-mid);border-radius:var(--radius-md);padding:12px;">
+          <div style="font-size:13px;font-weight:600;color:var(--green);margin-bottom:8px;">✓ Files saved to your Downloads folder</div>
+          <div style="font-size:11px;color:#005C43;line-height:1.8;">
+            1. Open <strong>Outlook</strong><br>
+            2. Compose a new email to yourself<br>
+            3. Tap the <strong>paperclip</strong> → attach all downloaded files<br>
+            4. Use this subject line then tap <strong>Send</strong>:
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;background:#fff;border:1.5px solid var(--green-mid);border-radius:var(--radius-sm);padding:9px 12px;margin-top:8px;">
+            <div style="flex:1;font-size:13px;font-weight:600;color:var(--green);" id="subject-line-display">${subjectLine}</div>
+            <button onclick="copySubject('${subjectLine}')" style="height:30px;padding:0 12px;background:var(--green);color:#fff;border:none;border-radius:var(--radius-sm);font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;">Copy</button>
+          </div>
+        </div>
+      </div>
+
+      <button onclick="closeSubmitModal()" style="width:100%;height:44px;background:transparent;color:var(--gray-400);border:1.5px solid var(--gray-200);border-radius:var(--radius-md);font-size:13px;cursor:pointer;">Done</button>
+    </div>
+  `;
+
+  let overlay = document.getElementById('submit-modal-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'submit-modal-overlay';
+    overlay.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.50);z-index:300;align-items:flex-end;justify-content:center;';
+    const inner = document.createElement('div');
+    inner.id = 'submit-modal-inner';
+    inner.style.cssText = 'background:var(--white);border-radius:14px 14px 0 0;width:100%;max-width:680px;max-height:90vh;overflow-y:auto;-webkit-overflow-scrolling:touch;';
+    overlay.appendChild(inner);
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', function(e){ if(e.target===this) closeSubmitModal(); });
+  }
+  document.getElementById('submit-modal-inner').innerHTML = modalContent;
+  overlay.style.display = 'flex';
+}
+
+function saveAllFiles(siteStr, dateStr) {
+  const btn = document.getElementById('btn-save-all');
+  if (btn) { btn.textContent = '⏳ Saving files...'; btn.disabled = true; }
+
+  let delay = 0;
+
+  // 1 — PDF
+  setTimeout(() => {
+    if (typeof window.jspdf !== 'undefined') {
+      const bytes = buildPDFBytes();
+      if (bytes) {
+        const blob = new Blob([bytes], {type:'application/pdf'});
+        triggerDownload(blob, 'BI_Janitorial_Audit_'+siteStr+'_'+dateStr+'.pdf');
+      }
+    }
+  }, delay);
+  delay += 600;
+
+  // 2 — CSV
+  setTimeout(() => {
+    const content = buildCSVContent();
+    const blob = new Blob([content], {type:'text/csv;charset=utf-8;'});
+    triggerDownload(blob, 'BI_Janitorial_Audit_'+siteStr+'_'+dateStr+'.csv');
+  }, delay);
+  delay += 600;
+
+  // 3 — Photos (one at a time with gap)
+  SECTIONS.forEach(sec => {
+    (photos[sec.id]||[]).filter(Boolean).forEach((dataUrl, idx) => {
+      setTimeout(() => {
+        const secName = sec.title.replace(/[^a-zA-Z0-9]/g,'_').replace(/_+/g,'_');
+        const ext = dataUrl.startsWith('data:image/png') ? 'png' : 'jpg';
+        const mimeType = dataUrl.startsWith('data:image/png') ? 'image/png' : 'image/jpeg';
+        // Convert data URL to blob directly — works on all mobile browsers
+        const base64 = dataUrl.split(',')[1];
+        const binary = atob(base64);
+        const bytes  = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const blob = new Blob([bytes], {type: mimeType});
+        triggerDownload(blob, secName+'_Photo_'+(idx+1)+'_'+dateStr+'.'+ext);
+      }, delay);
+      delay += 800;
+    });
+  });
+
+  // Show done state after all files
+  setTimeout(() => {
+    const saveArea = document.getElementById('save-btn-area');
+    const doneArea = document.getElementById('save-done-area');
+    if (saveArea) saveArea.style.display = 'none';
+    if (doneArea) doneArea.style.display = 'block';
+  }, delay + 200);
+}
+
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a   = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
+}
+
+function buildCSVContent() {
+  const site        = document.getElementById('site').value        || '';
+  const inspDate    = document.getElementById('insp-date').value   || '';
+  const building    = document.getElementById('building').value    || '';
+  const inspectedBy = document.getElementById('inspected-by').value|| '';
+
+  let totalSum = 0, totalCount = 0, naCount = 0, failCount = 0;
+  SECTIONS.forEach(sec => {
+    const v = scores[sec.id];
+    if (!v) return;
+    if (v === 'na') { naCount++; return; }
+    const n = parseInt(v); totalSum += n; totalCount++;
+    if (n <= 2) failCount++;
+  });
+
+  const overall     = totalCount > 0 ? (totalSum / totalCount).toFixed(2) : '';
+  const overallBand = overall === '' ? '' :
+    parseFloat(overall) >= 4.0 ? 'Exceeds Target' :
+    parseFloat(overall) >= 3.0 ? 'Meets Target' :
+    parseFloat(overall) >= 2.5 ? 'Needs Improvement' : 'Below Target';
+
+  const SCORE_LABELS = {'5':'Exceeds Target','4':'Meets Target','3':'Needs Improvement','2':'Target Not Met','1':'Failure','na':'Not Applicable'};
+
+  function q(val) { const s = (val === null || val === undefined) ? '' : String(val); return '"' + s.replace(/"/g, '""') + '"'; }
+
+  const rows = [];
+  rows.push([q('Janitorial Audit Form'),q(''),q(''),q(''),q('')].join(','));
+  rows.push([q('Site:'),q(site),q(''),q('Inspection Date:'),q(inspDate)].join(','));
+  rows.push([q('Building:'),q(building),q(''),q('Inspected By:'),q(inspectedBy)].join(','));
+  rows.push([q(''),q(''),q(''),q(''),q('')].join(','));
+  rows.push([q('Category'),q('General Conditions'),q('Audit Score'),q('Score Label'),q('Comments'),q('Failed / Low Score Flag'),q('Overall Audit Score'),q('Score Band')].join(','));
+
+  SECTIONS.forEach(sec => {
+    const v = scores[sec.id];
+    rows.push([
+      q(sec.title),
+      q(sec.conditions.join(' | ')),
+      q(v ? (v === 'na' ? 'N/A' : v) : ''),
+      q(v ? (SCORE_LABELS[v] || '') : ''),
+      q(comments[sec.id] || ''),
+      q(v && v !== 'na' && parseInt(v) <= 2 ? 'YES' : ''),
+      q(overall),
+      q(overallBand)
+    ].join(','));
+  });
+
+  rows.push([q(''),q(''),q(''),q(''),q(''),q(''),q(''),q('')].join(','));
+  rows.push([q('Janitorial Audit Score'),q(''),q(overall),q(overallBand),q(''),q(''),q(''),q('')].join(','));
+  rows.push([q(''),q(''),q(''),q(''),q(''),q(''),q(''),q('')].join(','));
+  rows.push([q('Legend'),q(''),q(''),q(''),q(''),q(''),q(''),q('')].join(','));
+  rows.push([q('Exceeds Target'),q('5'),q(''),q(''),q(''),q(''),q(''),q('')].join(','));
+  rows.push([q('Meets Target'),q('4'),q(''),q(''),q(''),q(''),q(''),q('')].join(','));
+  rows.push([q('Needs Improvement'),q('3'),q(''),q(''),q(''),q(''),q(''),q('')].join(','));
+  rows.push([q('Target Not Met'),q('2'),q(''),q(''),q(''),q(''),q(''),q('')].join(','));
+  rows.push([q('Failure'),q('1'),q(''),q(''),q(''),q(''),q(''),q('')].join(','));
+  rows.push([q('Not Applicable'),q('N/A'),q(''),q(''),q(''),q(''),q(''),q('')].join(','));
+  rows.push([q('Sections Scored'),q(totalCount),q(''),q(''),q(''),q(''),q(''),q('')].join(','));
+  rows.push([q('N/A Sections'),q(naCount),q(''),q(''),q(''),q(''),q(''),q('')].join(','));
+  rows.push([q('Failed Items'),q(failCount),q(''),q(''),q(''),q(''),q(''),q('')].join(','));
+
+  return '\uFEFF' + rows.join('\r\n');
+}
+
+function buildPDFBytes() {
+  if (typeof window.jspdf === 'undefined') return null;
+  try {
+    const { jsPDF } = window.jspdf;
+    const site        = document.getElementById('site').value        || 'Site not set';
+    const inspDate    = document.getElementById('insp-date').value   || '';
+    const building    = document.getElementById('building').value    || '';
+    const inspectedBy = document.getElementById('inspected-by').value|| '';
+    const SCORE_LABELS = {'5':'Exceeds Target','4':'Meets Target','3':'Needs Improvement','2':'Target Not Met','1':'Failure','na':'Not Applicable'};
+
+    let totalSum = 0, totalCount = 0, naCount = 0, failCount = 0;
+    SECTIONS.forEach(sec => {
+      const v = scores[sec.id]; if (!v) return;
+      if (v === 'na') { naCount++; return; }
+      const n = parseInt(v); totalSum += n; totalCount++;
+      if (n <= 2) failCount++;
+    });
+    const overall     = totalCount > 0 ? (totalSum / totalCount).toFixed(2) : '—';
+    const overallBand = overall === '—' ? 'No sections scored' :
+      parseFloat(overall) >= 4.0 ? 'Exceeds Target' :
+      parseFloat(overall) >= 3.0 ? 'Meets Target' :
+      parseFloat(overall) >= 2.5 ? 'Needs Improvement' : 'Below Target';
+
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const W = 210, margin = 14, contentW = W - margin * 2;
+    let y = margin;
+
+    function checkPage(needed) { if (y + needed > 280) { doc.addPage(); y = margin; } }
+    function drawRect(x, iy, w, h, fill) { doc.setFillColor(...fill); doc.roundedRect(x, iy, w, h, 2, 2, 'F'); }
+
+    // Cover
+    drawRect(margin, y, contentW, 38, [0,106,77]);
+    doc.setFontSize(7); doc.setTextColor(200,240,225); doc.setFont('helvetica','normal');
+    doc.text('CBRE · SBM Management Services', margin+4, y+6);
+    doc.setFontSize(16); doc.setTextColor(255,255,255); doc.setFont('helvetica','bold');
+    doc.text('BI Janitorial Audit', margin+4, y+14);
+    doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(200,240,225);
+    doc.text(site + (building ? ' · '+building : ''), margin+4, y+20);
+    doc.setFontSize(20); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
+    doc.text(overall, W-margin-4, y+16, {align:'right'});
+    doc.setFontSize(8); doc.setFont('helvetica','normal');
+    doc.text(overallBand, W-margin-4, y+22, {align:'right'});
+    const stats = [{val:String(totalCount),lbl:'Scored'},{val:String(failCount),lbl:'Failed'},{val:String(naCount),lbl:'N/A'},{val:inspectedBy||'—',lbl:'Inspector'},{val:inspDate||'—',lbl:'Date'}];
+    const statW = contentW / stats.length;
+    stats.forEach((s,i) => {
+      doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
+      doc.text(s.val.length > 12 ? s.val.substring(0,12) : s.val, margin+i*statW+statW/2, y+30, {align:'center'});
+      doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(200,240,225);
+      doc.text(s.lbl, margin+i*statW+statW/2, y+35, {align:'center'});
+    });
+    y += 44;
+
+    // Failed items
+    const failedItems = SECTIONS.filter(sec => { const v=scores[sec.id]; return v && v!=='na' && parseInt(v)<=2; });
+    if (failedItems.length > 0) {
+      checkPage(10 + failedItems.length * 12);
+      drawRect(margin, y, contentW, 8, [252,235,235]);
+      doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(139,0,0);
+      doc.text('Items Needing Attention (' + failedItems.length + ')', margin+3, y+5.5);
+      y += 10;
+      failedItems.forEach(sec => {
+        checkPage(12);
+        const v = scores[sec.id]; const note = comments[sec.id]||'';
+        drawRect(margin, y, contentW, note ? 14 : 10, [255,248,248]);
+        doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(44,44,42);
+        doc.text(sec.title, margin+3, y+6);
+        doc.setFillColor(v==='1'?139:184, v==='1'?0:64, 0);
+        doc.circle(W-margin-6, y+5, 4, 'F');
+        doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
+        doc.text(v, W-margin-6, y+6.5, {align:'center'});
+        if (note) { doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(92,92,88); doc.text(note.substring(0,90), margin+3, y+11); }
+        y += note ? 16 : 12;
+      });
+      y += 4;
+    }
+
+    // Sections
+    const SCORE_COLORS_RGB = {'5':[0,106,77],'4':[59,122,22],'3':[196,122,0],'2':[184,64,0],'1':[154,24,24],'na':[158,158,153]};
+    const SCORE_BG_RGB     = {'5':[225,245,238],'4':[234,243,222],'3':[255,251,240],'2':[255,244,239],'1':[255,242,242],'na':[244,244,244]};
+    let lastGroup = '';
+    SECTIONS.forEach(sec => {
+      const v = scores[sec.id]; const note = comments[sec.id]||''; const secPhotos = (photos[sec.id]||[]).filter(Boolean);
+      if (sec.group !== lastGroup) {
+        checkPage(10);
+        doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(158,158,153);
+        doc.text(sec.group.toUpperCase(), margin, y+4); y += 8; lastGroup = sec.group;
+      }
+      checkPage(20);
+      drawRect(margin, y, contentW, 10, [0,106,77]);
+      doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
+      doc.text(sec.num+'. '+sec.title, margin+3, y+7);
+      const scoreDisp = v ? (v==='na'?'N/A':v) : '—';
+      const scoreLbl  = v ? (SCORE_LABELS[v]||'') : 'Not scored';
+      const sColor = v ? SCORE_COLORS_RGB[v] : [158,158,153];
+      const sBg    = v ? SCORE_BG_RGB[v]    : [244,244,244];
+      drawRect(W-margin-30, y+1.5, 29, 7, sBg);
+      doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(...sColor);
+      doc.text(scoreDisp+'  '+scoreLbl, W-margin-1, y+7, {align:'right'});
+      y += 12;
+      doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(158,158,153);
+      doc.text('GENERAL CONDITIONS', margin, y); y += 4;
+      sec.conditions.forEach(c => {
+        const lines = doc.splitTextToSize('• '+c, contentW-4);
+        checkPage(lines.length*4.5+2);
+        doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(92,92,88);
+        doc.text(lines, margin+2, y); y += lines.length*4.5;
+      });
+      y += 2;
+      if (note) {
+        checkPage(14);
+        doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(158,158,153);
+        doc.text('COMMENTS', margin, y); y += 4;
+        const noteLines = doc.splitTextToSize(note, contentW-6);
+        drawRect(margin, y, contentW, noteLines.length*4.5+5, [249,249,248]);
+        doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(44,44,42);
+        doc.text(noteLines, margin+3, y+4); y += noteLines.length*4.5+7;
+      }
+      if (secPhotos.length > 0) {
+        checkPage(10);
+        doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(158,158,153);
+        doc.text('PHOTOS ('+secPhotos.length+')', margin, y); y += 5;
+        const imgW = (contentW-6)/3;
+        secPhotos.forEach((src, idx) => {
+          const col = idx%3; const imgX = margin+col*(imgW+3);
+          if (col===0 && idx>0) y += imgW*0.75+3;
+          checkPage(imgW*0.75+4);
+          try { doc.addImage(src, src.startsWith('data:image/png')?'PNG':'JPEG', imgX, y, imgW, imgW*0.75); }
+          catch(e) { drawRect(imgX, y, imgW, imgW*0.75, [240,240,240]); }
+        });
+        y += imgW*0.75+5;
+      }
+      y += 6;
+    });
+
+    // Page numbers
+    const pc = doc.getNumberOfPages();
+    for (let p=1; p<=pc; p++) {
+      doc.setPage(p);
+      doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(180,180,180);
+      doc.text('BI Janitorial Audit · CBRE IFM · SBM Management Services', margin, 292);
+      doc.text('Page '+p+' of '+pc, W-margin, 292, {align:'right'});
+    }
+
+    return doc.output('arraybuffer');
+  } catch(e) {
+    console.error('PDF build error:', e);
+    return null;
+  }
+}
+
+function closeSubmitModal() {
+  const overlay = document.getElementById('submit-modal-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+function copySubject(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.querySelector('#subject-line-display + button');
+      if (btn) { btn.textContent = '✓ Copied'; btn.style.background = '#3B7A16'; }
+    });
+  } else {
+    // Fallback for older browsers
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0;';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    const btn = document.querySelector('#subject-line-display + button');
+    if (btn) { btn.textContent = '✓ Copied'; btn.style.background = '#3B7A16'; }
+  }
+}
+
+
+
+function exportPhotos() { dlPhotos('f-photos'); }
+function exportPDF()    { dlPDF('f-pdf'); }
+function exportCSV()    { dlCSV('f-csv'); }
+
+
+function closeModal() {
+  document.getElementById('results-modal').classList.remove('open');
+}
+
+function resetAudit() {
+  if (!confirm('Clear all scores and start a new audit?')) return;
+  Object.keys(scores).forEach(k => delete scores[k]);
+  Object.keys(comments).forEach(k => delete comments[k]);
+  Object.keys(photos).forEach(k => delete photos[k]);
+  document.querySelectorAll('.score-btn').forEach(b => b.classList.remove('selected'));
+  document.querySelectorAll('.comment-textarea').forEach(t => { t.value=''; t.classList.remove('warn'); });
+  document.querySelectorAll('.photo-previews').forEach(p => p.innerHTML='');
+  SECTIONS.forEach(sec => {
+    const reqNote = document.getElementById('req-note-' + sec.id);
+    if (reqNote) reqNote.style.display = 'none';
+    const scoreEl = document.getElementById('sec-score-' + sec.id);
+    if (scoreEl) { scoreEl.textContent='—'; scoreEl.className='audit-section-score'; }
+  });
+  document.getElementById('site').value = '';
+  document.getElementById('building').value = '';
+  document.getElementById('inspected-by').value = '';
+  document.getElementById('insp-date').valueAsDate = new Date();
+  closeModal();
+  updateAll();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+document.getElementById('results-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+function setNavOffset() {
+  const hdr = document.querySelector('.app-header');
+  const nav = document.getElementById('quick-nav');
+  if (hdr && nav) nav.style.top = hdr.offsetHeight + 'px';
+}
+setNavOffset();
+window.addEventListener('resize', setNavOffset);
+</script>
+</body>
+</html>
