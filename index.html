@@ -372,7 +372,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   </div>
 
   <div class="submit-area">
-    <button class="btn-submit" onclick="showResults()">View Audit Results & Export</button>
+    <button class="btn-submit" onclick="showResults()">View Audit Results & Submit</button>
   </div>
 
 </main>
@@ -397,28 +397,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 
     <div style="background:var(--green-light);border-radius:var(--radius-md);padding:14px;margin-bottom:10px;border:1px solid var(--green-mid)">
       <div style="font-size:10px;font-weight:600;color:#005C43;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Submit Audit</div>
-      <div style="font-size:12px;color:#005C43;line-height:1.6;margin-bottom:10px;">Downloads your PDF, CSV, and photos. Then email all files to yourself — Power Automate saves each one directly to your SharePoint site folder.</div>
+      <div style="font-size:12px;color:#005C43;line-height:1.6;margin-bottom:10px;">Saves your PDF, CSV, and photos individually. Then attach them in Outlook and send — Power Automate routes each file to your SharePoint site folder.</div>
       <button class="btn-submit" onclick="submitAudit()" style="background:var(--green);margin-bottom:0;">
-        Submit Audit &amp; Download Files
+        Submit Audit &amp; Save Files
       </button>
-    </div>
-
-    <div style="background:var(--gray-50);border-radius:var(--radius-md);padding:12px;margin-bottom:10px">
-      <div style="font-size:10px;font-weight:600;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Individual Exports</div>
-      <div style="display:flex;flex-direction:column;gap:8px">
-        <button class="btn-export" onclick="exportPDF()">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-          Export PDF only
-        </button>
-        <button class="btn-export" onclick="exportCSV()">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Export CSV only
-        </button>
-        <button class="btn-export" onclick="exportPhotos()">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-          Export Photos only
-        </button>
-      </div>
     </div>
 
     <button class="btn-close-modal" onclick="closeModal()">Close</button>
@@ -1004,31 +986,11 @@ function submitAudit() {
   const siteShort   = site.split(',')[0].trim();
   const dateStr     = inspDate ? inspDate.replace(/-/g,'') : 'nodate';
   const siteStr     = site.replace(/[^a-zA-Z0-9]/g,'_');
-
-  const photoCount = SECTIONS.reduce((t,sec) => t + (photos[sec.id]||[]).filter(Boolean).length, 0);
   const subjectLine = 'Janitorial Audit - ' + siteShort;
 
+  const photoCount = SECTIONS.reduce((t,sec) => t + (photos[sec.id]||[]).filter(Boolean).length, 0);
+
   closeModal();
-
-  // Build file list
-  const fileList = [
-    { id:'f-pdf',  icon:'📄', label:'PDF Report',          hint:'Full audit with scores, comments & photos', fn:'dlPDF' },
-    { id:'f-csv',  icon:'📊', label:'CSV Data',            hint:'For Smartsheet / Power BI',                 fn:'dlCSV' },
-  ];
-  if (photoCount > 0) {
-    fileList.push({ id:'f-photos', icon:'📷', label:photoCount + ' Photo' + (photoCount>1?'s':''), hint:'One JPG per section', fn:'dlPhotos' });
-  }
-
-  const fileRows = fileList.map(f => `
-    <div id="${f.id}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--white);border:1.5px solid var(--gray-200);border-radius:var(--radius-sm);margin-bottom:6px;">
-      <div style="font-size:20px;flex-shrink:0;">${f.icon}</div>
-      <div style="flex:1;">
-        <div style="font-size:13px;font-weight:600;color:var(--gray-800);">${f.label}</div>
-        <div style="font-size:11px;color:var(--gray-400);">${f.hint}</div>
-      </div>
-      <button id="btn-${f.id}" onclick="${f.fn}('${f.id}')" style="height:34px;padding:0 14px;background:var(--green);color:#fff;border:none;border-radius:var(--radius-sm);font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent;">Save</button>
-    </div>
-  `).join('');
 
   const modalContent = `
     <div style="padding:20px;">
@@ -1036,24 +998,37 @@ function submitAudit() {
       <div style="font-size:18px;font-weight:700;color:var(--gray-800);margin-bottom:4px;">Submit Audit</div>
       <div style="font-size:12px;color:var(--gray-400);margin-bottom:16px;">${site}${building?' · '+building:''} · ${inspDate}</div>
 
-      <div style="font-size:11px;font-weight:600;color:var(--gray-600);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Step 1 — Save each file</div>
-      ${fileRows}
-
-      <div style="margin-top:12px;padding:12px;background:var(--gray-50);border-radius:var(--radius-md);margin-bottom:8px;">
-        <div style="font-size:11px;font-weight:600;color:var(--gray-600);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Step 2 — Email to SharePoint</div>
-        <div style="font-size:12px;color:var(--gray-600);line-height:1.7;margin-bottom:10px;">
-          Open Outlook, compose a new email <strong>to yourself</strong>, attach all saved files, and use this subject line:
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;background:var(--white);border:1.5px solid var(--green-mid);border-radius:var(--radius-sm);padding:9px 12px;margin-bottom:10px;">
-          <div style="flex:1;font-size:13px;font-weight:600;color:var(--green);" id="subject-line-display">${subjectLine}</div>
-          <button onclick="copySubject('${subjectLine}')" style="height:30px;padding:0 12px;background:var(--green);color:#fff;border:none;border-radius:var(--radius-sm);font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;">Copy</button>
-        </div>
-        <div style="font-size:11px;color:var(--gray-400);line-height:1.6;">
-          Power Automate will automatically save each file to your <strong>${siteShort}</strong> SharePoint folder. Files open directly — no ZIP needed.
+      <div style="background:var(--green-light);border:1px solid var(--green-mid);border-radius:var(--radius-md);padding:12px;margin-bottom:14px;">
+        <div style="font-size:12px;color:#005C43;line-height:1.7;">
+          Tap <strong>Save All Files</strong> to download:<br>
+          📄 PDF report &nbsp;·&nbsp; 📊 CSV data${photoCount > 0 ? ' &nbsp;·&nbsp; 📷 ' + photoCount + ' photo' + (photoCount>1?'s':'') : ''}<br>
+          Then open Outlook, attach all files, and send.
         </div>
       </div>
 
-      <button onclick="closeSubmitModal()" style="width:100%;height:44px;background:transparent;color:var(--gray-400);border:1.5px solid var(--gray-200);border-radius:var(--radius-md);font-size:13px;cursor:pointer;margin-top:4px;">Done</button>
+      <div id="save-btn-area">
+        <button id="btn-save-all" onclick="saveAllFiles('${siteStr}','${dateStr}')" style="width:100%;height:52px;background:var(--green);color:#fff;border:none;border-radius:var(--radius-md);font-size:15px;font-weight:600;cursor:pointer;margin-bottom:8px;-webkit-tap-highlight-color:transparent;">
+          💾 Save All Files
+        </button>
+      </div>
+
+      <div id="save-done-area" style="display:none;margin-bottom:12px;">
+        <div style="background:var(--green-light);border:1px solid var(--green-mid);border-radius:var(--radius-md);padding:12px;">
+          <div style="font-size:13px;font-weight:600;color:var(--green);margin-bottom:8px;">✓ Files saved to your Downloads folder</div>
+          <div style="font-size:11px;color:#005C43;line-height:1.8;">
+            1. Open <strong>Outlook</strong><br>
+            2. Compose a new email to yourself<br>
+            3. Tap the <strong>paperclip</strong> → attach all downloaded files<br>
+            4. Use this subject line then tap <strong>Send</strong>:
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;background:#fff;border:1.5px solid var(--green-mid);border-radius:var(--radius-sm);padding:9px 12px;margin-top:8px;">
+            <div style="flex:1;font-size:13px;font-weight:600;color:var(--green);" id="subject-line-display">${subjectLine}</div>
+            <button onclick="copySubject('${subjectLine}')" style="height:30px;padding:0 12px;background:var(--green);color:#fff;border:none;border-radius:var(--radius-sm);font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;">Copy</button>
+          </div>
+        </div>
+      </div>
+
+      <button onclick="closeSubmitModal()" style="width:100%;height:44px;background:transparent;color:var(--gray-400);border:1.5px solid var(--gray-200);border-radius:var(--radius-md);font-size:13px;cursor:pointer;">Done</button>
     </div>
   `;
 
@@ -1073,62 +1048,65 @@ function submitAudit() {
   overlay.style.display = 'flex';
 }
 
-function markFileDone(rowId) {
-  const row = document.getElementById(rowId);
-  const btn = document.getElementById('btn-' + rowId);
-  if (row) { row.style.borderColor='var(--green-mid)'; row.style.background='var(--green-light)'; }
-  if (btn) { btn.textContent='✓ Saved'; btn.style.background='#3B7A16'; btn.disabled=true; }
-}
+function saveAllFiles(siteStr, dateStr) {
+  const btn = document.getElementById('btn-save-all');
+  if (btn) { btn.textContent = '⏳ Saving files...'; btn.disabled = true; }
 
-function dlPDF(rowId) {
-  const site     = document.getElementById('site').value     || 'Site not set';
-  const inspDate = document.getElementById('insp-date').value || '';
-  const dateStr  = inspDate ? inspDate.replace(/-/g,'') : 'nodate';
-  const siteStr  = site.replace(/[^a-zA-Z0-9]/g,'_');
-  if (typeof window.jspdf === 'undefined') { alert('PDF library not loaded. Please reload the page.'); return; }
-  const bytes = buildPDFBytes();
-  if (!bytes) { alert('PDF could not be generated. Please try again.'); return; }
-  const blob = new Blob([bytes], {type:'application/pdf'});
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href=url; a.download='BI_Janitorial_Audit_'+siteStr+'_'+dateStr+'.pdf';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  markFileDone(rowId);
-}
+  let delay = 0;
 
-function dlCSV(rowId) {
-  const site     = document.getElementById('site').value     || '';
-  const inspDate = document.getElementById('insp-date').value || '';
-  const dateStr  = inspDate ? inspDate.replace(/-/g,'') : 'nodate';
-  const siteStr  = site ? site.replace(/[^a-zA-Z0-9]/g,'_') : 'nosite';
-  const content  = buildCSVContent();
-  const blob = new Blob([content], {type:'text/csv;charset=utf-8;'});
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href=url; a.download='BI_Janitorial_Audit_'+siteStr+'_'+dateStr+'.csv';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  markFileDone(rowId);
-}
+  // 1 — PDF
+  setTimeout(() => {
+    if (typeof window.jspdf !== 'undefined') {
+      const bytes = buildPDFBytes();
+      if (bytes) {
+        const blob = new Blob([bytes], {type:'application/pdf'});
+        triggerDownload(blob, 'BI_Janitorial_Audit_'+siteStr+'_'+dateStr+'.pdf');
+      }
+    }
+  }, delay);
+  delay += 600;
 
-function dlPhotos(rowId) {
-  const inspDate = document.getElementById('insp-date').value || '';
-  const dateStr  = inspDate ? inspDate.replace(/-/g,'') : 'nodate';
-  let count = 0;
+  // 2 — CSV
+  setTimeout(() => {
+    const content = buildCSVContent();
+    const blob = new Blob([content], {type:'text/csv;charset=utf-8;'});
+    triggerDownload(blob, 'BI_Janitorial_Audit_'+siteStr+'_'+dateStr+'.csv');
+  }, delay);
+  delay += 600;
+
+  // 3 — Photos (one at a time with gap)
   SECTIONS.forEach(sec => {
     (photos[sec.id]||[]).filter(Boolean).forEach((dataUrl, idx) => {
       setTimeout(() => {
         const secName = sec.title.replace(/[^a-zA-Z0-9]/g,'_').replace(/_+/g,'_');
         const ext = dataUrl.startsWith('data:image/png') ? 'png' : 'jpg';
-        const a = document.createElement('a');
-        a.href=dataUrl; a.download=secName+'_Photo_'+(idx+1)+'_'+dateStr+'.'+ext;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      }, count * 500);
-      count++;
+        // Convert data URL to blob for reliable mobile download
+        fetch(dataUrl)
+          .then(r => r.blob())
+          .then(blob => triggerDownload(blob, secName+'_Photo_'+(idx+1)+'_'+dateStr+'.'+ext));
+      }, delay);
+      delay += 600;
     });
   });
-  setTimeout(() => markFileDone(rowId), count * 500 + 100);
+
+  // Show done state after all files
+  setTimeout(() => {
+    const saveArea = document.getElementById('save-btn-area');
+    const doneArea = document.getElementById('save-done-area');
+    if (saveArea) saveArea.style.display = 'none';
+    if (doneArea) doneArea.style.display = 'block';
+  }, delay + 200);
+}
+
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a   = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
 }
 
 function buildCSVContent() {
